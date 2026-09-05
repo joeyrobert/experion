@@ -333,7 +333,8 @@ module Experion
         beta = INF
 
         if depth >= 5
-          delta = 36
+          # scale delta with depth — deeper iterations vary more
+          delta = 18 + depth
           alpha = prev_score - delta
           beta = prev_score + delta
           loop do
@@ -500,8 +501,37 @@ module Experion
       end
       tt_move = Moves::MOVE_NONE if tt_move == 0u16
 
-      # internal iterative reduction: without a hash move, search one ply less
+      # --- Singular Extensions ----------------------------------------------
+      # If the TT move has enough depth and a non-mate score, do a quick
+      # verification search to see if it's MUCH better than all alternatives.
+      # If singular, extend the TT move's search by 1 ply (or 2 for double).
+      singular_ext = 0
+      if tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && !in_check &&
+         tt_score.abs < Eval::MATE_IN_MAX && (tt_flags == TT::FLAG_EXACT || tt_flags == TT::FLAG_LOWER)
+        # do a reduced-depth search excluding the TT move; if no alternative
+        # can match the TT score minus a margin, the move is singular
+        verify_beta = tt_score - 2 * depth
+        if verify_beta > -Eval::MATE_IN_MAX && verify_beta < b
+          # search all moves except tt_move at reduced depth with verify_beta
+          singular = singular_check(pos, ply, tt_move, depth - 1, verify_beta, limits, prev_m)
+          if singular
+            singular_ext = 1
+            # double extension: if the original TT depth is much higher than
+            # ours, we trust the TT more, allow a second extension
+            singular_ext = 2 if tt_depth >= depth + 3
+          elsif !singular.nil? && tt_score <= alpha
+            # multi-cut: if even the best alternative falls well below alpha,
+            # we can prune
+            return tt_score
+          end
+        end
+      end
+
+      # internal iterative reduction: without a hash move, search one ply
+      # less — the IIR is cheaper than IID and gives most of the benefit.
       depth -= 1 if tt_move == Moves::MOVE_NONE && depth >= 5 && !in_check
+
+      depth += singular_ext
 
       static_eval = evaluate_search(pos, ply)
       @sevals[ply] = static_eval
@@ -554,15 +584,24 @@ module Experion
             prune_futility = true if depth <= 2 &&
                                     static_eval + FUTILITY[depth] <= a
           else
-            prune_futility = true if depth <= 4 && See.see(pos, m) < -(80 * depth)
+            # SEE-based capture pruning: skip clearly-losing captures
+            # (and quiet captures via SEE up to depth 6)
+            see_val = See.see(pos, m)
+            prune_futility = true if depth <= 4 && see_val < -(80 * depth)
+            # at higher depths, prune only very negative captures
+            prune_futility = true if depth <= 6 && see_val < -300
           end
         end
 
         # late move pruning: at very low depth, very late quiets are almost
         # never the best move. Aggressive pruning hurts in tactical lines.
         prune_lmp = false
-        if !in_check && quiet && depth <= 1 && b.abs < Eval::MATE_IN_MAX
-          lmp_margin = 4
+        if !in_check && quiet && depth <= 2 && b.abs < Eval::MATE_IN_MAX
+          lmp_margin = if depth == 1
+                        4
+                      else
+                        6
+                      end
           lmp_margin -= 1 if improving
           prune_lmp = true if legal > lmp_margin
         end
@@ -912,6 +951,33 @@ module Experion
         @killers[ply * 2 + 1] = k0
         @killers[ply * 2] = m
       end
+    end
+
+    # Returns true if the tt_move is "singular": no other move can match
+    # verify_beta at reduced depth. Returns false if any alternative beats it.
+    # Returns nil if a TT cutoff was hit (no clear answer — fall through).
+    private def singular_check(pos : Position, ply : Int32, skip : UInt16,
+                               depth : Int32, beta : Int32, limits : Limits,
+                               prev_m : UInt16) : Bool?
+      a = beta - 1
+      count = generate_into(pos, ply)
+      score_moves(pos, ply, count, Moves::MOVE_NONE, prev_m)
+      i = 0
+      while i < count
+        m = pick_best(ply, count, i)
+        i += 1
+        next if m == skip
+        child = pos
+        push_acc(pos, m, ply, ply + 1, child)
+        child.make_move(m)
+        @hashes[@base_ply + ply + 1] = child.hash
+        score = -negamax(child, depth, -beta, -a, ply + 1, limits, true, m)
+        if score >= beta
+          return false # a non-skip move beats beta
+        end
+        return nil if @stop.get
+      end
+      true
     end
 
     private def bump_history(pc : Int, to : Int, depth : Int32) : Nil
