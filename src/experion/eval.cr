@@ -195,21 +195,12 @@ module Experion
       while kn != 0
         s = kn.trailing_zeros_count.to_i!
         d_mg += 4 * (Tables.knight_attacks(s) & ~us_occ0).popcount
-        # knight on the rim is bad: -10cp per rim square
-        f = s & 7
-        if f == 0 || f == 7
-          d_mg -= 10
-        end
         kn &= kn - 1
       end
       kn = pos.pieces_of(BLACK, KNIGHT)
       while kn != 0
         s = kn.trailing_zeros_count.to_i!
         d_mg -= 4 * (Tables.knight_attacks(s) & ~them_occ0).popcount
-        f = s & 7
-        if f == 0 || f == 7
-          d_mg += 10
-        end
         kn &= kn - 1
       end
 
@@ -345,30 +336,6 @@ module Experion
       d_eg += 40 if pos.pieces_of(WHITE, BISHOP).popcount >= 2
       d_mg -= 26 if pos.pieces_of(BLACK, BISHOP).popcount >= 2
       d_eg -= 40 if pos.pieces_of(BLACK, BISHOP).popcount >= 2
-
-      # --- bad bishops: bishop blocked by own pawns on its color --------------
-      # precompute masks for light/dark squares: file+rank odd => light
-      light_sq_mask = 0x55AA55AA55AA55AAu64
-      {% for color in [0, 1] %}
-        sign_bb = {{color == 0 ? 1 : -1}}
-        {% if color == 0 %}
-          my_p = wp
-        {% else %}
-          my_p = bp
-        {% end %}
-        bi_bb = pos.pieces_of({{color}}, BISHOP)
-        while bi_bb != 0
-          sq_bb = bi_bb.trailing_zeros_count.to_i!
-          sq_color = ((sq_bb & 7) + (sq_bb >> 3)) & 1
-          my_color_pawns = (sq_color == 0) ? (my_p & light_sq_mask) : (my_p & ~light_sq_mask)
-          blocked = my_color_pawns.popcount
-          if blocked >= 3
-            d_mg -= sign_bb * 8 * (blocked - 2)
-            d_eg -= sign_bb * 12 * (blocked - 2)
-          end
-          bi_bb &= bi_bb - 1
-        end
-      {% end %}
 
       mg += d_mg
       eg += d_eg
