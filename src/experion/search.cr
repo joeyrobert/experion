@@ -519,10 +519,6 @@ module Experion
             # double extension: if the original TT depth is much higher than
             # ours, we trust the TT more, allow a second extension
             singular_ext = 2 if tt_depth >= depth + 3
-          elsif !singular.nil? && tt_score <= alpha
-            # multi-cut: if even the best alternative falls well below alpha,
-            # we can prune
-            return tt_score
           end
         end
       end
@@ -539,8 +535,8 @@ module Experion
       # "improving": our static eval is better than it was two plies ago
       improving = ply >= 2 && @sevals[ply] > @sevals[ply - 2]
 
-      # reverse futility pruning
-      if !in_check && depth <= 4 && static_eval - 80 * depth >= b &&
+      # reverse futility pruning: tighter margin when not improving
+      if !in_check && depth <= 4 && static_eval - (improving ? 60 : 80) * depth >= b &&
          b.abs < Eval::MATE_IN_MAX
         return static_eval
       end
