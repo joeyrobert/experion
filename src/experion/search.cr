@@ -205,13 +205,38 @@ module Experion
         return pos.stm == WHITE.to_u8! ? v : -v
       end
 
-      v = Eval.evaluate(pos)
+      # blend classical and NNUE eval when NNUE is enabled
+      v_class = Eval.evaluate(pos)
+      if Nnue.enabled?
+        # NNUE: use the incrementally updated accumulator
+        v_nnue = Nnue.evaluate(@accs + ply * Nnue.acc_row, pos.phase, pos.stm == WHITE.to_u8!)
+        # EvalBlend: 0 = pure classical, 100 = pure NNUE
+        blend = Nnue.blend
+        v = (v_class * (100 - blend) + v_nnue * blend) // 100
+      else
+        v = v_class
+      end
 
       # store white-POV value + sign bit
       wv = pos.stm == WHITE.to_u8! ? v : -v
       @eval_cache[idx * 2] = h
       @eval_cache[idx * 2 + 1] = wv.abs.to_u64! << 1 | (wv < 0 ? 1u64 : 0u64)
 
+      v
+    end
+
+    # Public-facing eval: refresh the NNUE accumulator for `pos` and
+    # return the blend-applied value. Used by the UCI `eval` command.
+    def eval_for(pos : Position) : Int32
+      v_class = Eval.evaluate(pos)
+      if Nnue.enabled?
+        Nnue.refresh(@accs, pos)
+        v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!)
+        blend = Nnue.blend
+        v = (v_class * (100 - blend) + v_nnue * blend) // 100
+      else
+        v = v_class
+      end
       v
     end
 
