@@ -286,8 +286,11 @@ module Experion
         end
         {% if color == 0 %}
           d_mg += pres
+          # bonus for multiple attackers on king zone (scaling attack)
+          d_mg += pres * pres // 800 if pres > 60
         {% else %}
           d_mg -= pres
+          d_mg -= pres * pres // 800 if pres > 60
         {% end %}
       {% end %}
 
