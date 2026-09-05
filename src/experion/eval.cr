@@ -340,6 +340,46 @@ module Experion
       mg += d_mg
       eg += d_eg
 
+      # --- hung pieces -----------------------------------------------------
+      # for each non-pawn piece, see if any enemy piece attacks it. If
+      # so, check if a friendly piece can recapture. If not, it's a
+      # tactical problem. The penalty is the piece value times a
+      # small fraction (most positions have a defender).
+      {% for color in [0, 1] %}
+        sign_h = {{color == 0 ? 1 : -1}}
+        {% for pt in [KNIGHT, BISHOP, ROOK, QUEEN] %}
+          pcs_h = pos.pieces_of({{color}}, {{pt}})
+          while pcs_h != 0
+            sq_h = pcs_h.trailing_zeros_count.to_i!
+            # any enemy piece attacks this square?
+            attacked = (Tables.pawn_attacks({{color}}, sq_h) & pos.pieces_of({{color}} ^ 1, PAWN)) |
+                       (Tables.knight_attacks(sq_h) & pos.pieces_of({{color}} ^ 1, KNIGHT)) |
+                       (Tables.bishop_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, BISHOP)) |
+                       (Tables.rook_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, ROOK)) |
+                       (Tables.queen_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, QUEEN))
+            if attacked != 0
+              # any friendly piece defends this square?
+              defended = (Tables.pawn_attacks({{color}} ^ 1, sq_h) & pos.pieces_of({{color}}, PAWN)) |
+                         (Tables.knight_attacks(sq_h) & pos.pieces_of({{color}}, KNIGHT)) |
+                         (Tables.bishop_attacks(sq_h, occ) & pos.pieces_of({{color}}, BISHOP)) |
+                         (Tables.rook_attacks(sq_h, occ) & pos.pieces_of({{color}}, ROOK)) |
+                         (Tables.queen_attacks(sq_h, occ) & pos.pieces_of({{color}}, QUEEN)) |
+                         (Tables.king_attacks(sq_h) & pos.pieces_of({{color}}, KING))
+              if defended == 0
+                # hanging: penalize by piece value (small fraction)
+                v = {{pt == KNIGHT ? 320 : pt == BISHOP ? 330 : pt == ROOK ? 500 : 950}}
+                d_mg -= sign_h * (v // 10)
+                d_eg -= sign_h * (v // 10)
+              end
+            end
+            pcs_h &= pcs_h - 1
+          end
+        {% end %}
+      {% end %}
+
+      mg += d_mg
+      eg += d_eg
+
       score = (mg * ph + eg * (24 - ph)) // 24
       # tempo always belongs to the side that has the initiative (white in
       # normal chess, since they move first). Add to white's POV value
