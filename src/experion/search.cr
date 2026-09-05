@@ -589,16 +589,18 @@ module Experion
           end
         end
 
-        # late move pruning: at very low depth, very late quiets are almost
+        # late move pruning: at low depth, very late quiets are almost
         # never the best move. Aggressive pruning hurts in tactical lines.
         prune_lmp = false
-        if !in_check && quiet && depth <= 2 && b.abs < Eval::MATE_IN_MAX
+        if !in_check && quiet && depth <= 3 && b.abs < Eval::MATE_IN_MAX
           lmp_margin = if depth == 1
                         4
-                      else
+                      elsif depth == 2
                         6
+                      else
+                        10
                       end
-          lmp_margin -= 1 if improving
+          lmp_margin -= 2 if improving
           prune_lmp = true if legal > lmp_margin
         end
 
