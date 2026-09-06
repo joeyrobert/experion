@@ -1,0 +1,37 @@
+/docs/
+/lib/
+/bin/
+/.shards/
+*.dwarf
+/bin/
+/scratch/
+/tools/match/fastchess-mac-arm64/
+/tools/match/fc.tar*
+/tools/match/tscp/
+/tools/match/tscp181
+/tools/match/tscp.zip
+/tools/match/uci_bridge
+/tools/match/uci_bridge2
+*.log
+
+# per-game/per-log debug artifacts from match/analysis tooling
+/game.*
+/log.*
+
+# NNUE checkpoints and trained binaries (large, regenerable) — a chosen
+# final net may be force-added explicitly when ready to ship
+nnue*.bin*
+
+# this Claude Code session's own local config/memory, not project content
+/.claude/
+
+# vendored third-party engine binaries/sources used only for local match
+# testing — not part of this project
+/tools/match/Crafty-Chess-25.2/
+/tools/match/crafty252.tar.gz
+/tools/match/ladder/
+/tools/match/games*.pgn
+/tools/match/config.json
+
+# abandoned/experimental code snapshots, not the active engine
+/variants/

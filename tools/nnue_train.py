@@ -7,8 +7,8 @@
 #   features : 2 x 768 HalfKA (piece-color-square per perspective)
 #   acc      : int32[256] per perspective, sum of w1[feature]  (w1 fixed-point Q1=1024)
 #   act      : clamp(acc_w[i] + acc_b[i], 0, 512)
-#   out_c    : sum_i act[i] * w2[c][i] >> 20
-#   eval cp  : blend(out_mg, out_eg) * 600 >> 10
+#   out_c    : sum_i act[i] * w2[c][i] >> 12
+#   eval cp  : blend(out_mg, out_eg) * 600 >> 9
 #
 # Data format: "FEN;result;score_cp" (score optional). When scores are present
 # the loss is pure regression toward them; otherwise WDL sigmoid vs result.
@@ -20,7 +20,11 @@ import torch
 PIECE_CHAR = "PNBRQKpnbrqk"
 H = 256          # overridden by H= arg
 Q1 = 1024
-OUT_SHIFT = 20
+# w2 (float) commonly reaches magnitude ~2-3 after training; OUT_SHIFT=20
+# (the original value) made w2*2^20 overflow int16 by up to ~70x, silently
+# clipping/corrupting the output layer. 12 keeps realistic w2 magnitudes
+# (up to ~8.0) safely inside int16 while still giving ~0.00024 resolution.
+OUT_SHIFT = 12
 
 
 def fen_features(fen):
@@ -137,6 +141,10 @@ def main():
     global H
     init_from = None
     lr = 3e-3
+    wd = 0.01
+    step_size = 15
+    bs = 512
+    device_override = None
     for a in sys.argv[4:]:
         if a.startswith("init="):
             init_from = a[5:]
@@ -144,6 +152,18 @@ def main():
             lr = float(a[3:])
         elif a.startswith("H="):
             H = int(a[2:])
+        elif a.startswith("wd="):
+            wd = float(a[3:])
+        elif a.startswith("step="):
+            step_size = int(a[5:])
+        elif a.startswith("bs="):
+            bs = int(a[3:])
+        elif a == "mps":
+            device_override = "mps"
+        elif a == "cpu":
+            device_override = "cpu"
+        elif a == "cuda":
+            device_override = "cuda"
 
     torch.set_num_threads(6)
     print("loading...", flush=True)
@@ -155,17 +175,38 @@ def main():
                 torch.from_numpy(cache["bi"][sel]).to(device),
                 torch.from_numpy(cache["ph"][sel]).to(device))
 
-    device = "cpu"
+    if device_override:
+        device = device_override
+    elif torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    print(f"device: {device}", flush=True)
     val_sel = np.arange(0, n_val)
     tr_sel = np.arange(n_val, len(results))
     print(f"{len(tr_sel)} train / {len(val_sel)} val (scores: {has_scores})", flush=True)
 
-    net = Net()
+    net = Net().to(device)
     if init_from:
-        net.load_state_dict(torch.load(init_from))
+        net.load_state_dict(torch.load(init_from, map_location=device))
         print(f"initialized from {init_from}")
-    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=0.01)
-    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=15, gamma=0.4)
+    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=wd)
+    # every run this session showed the same pattern: loss flat at the
+    # "predict nothing" baseline for dozens of epochs, then a sudden break
+    # exactly at the first StepLR decay — a symptom of the initial LR being
+    # too large for this architecture to make stable early progress, not of
+    # needing more epochs. A short linear warmup (start at lr/20, ramp to
+    # lr over the first few epochs) should let training actually progress
+    # from epoch 1 instead of wasting the first decay cycle escaping a bad
+    # regime.
+    warmup_epochs = max(3, epochs // 20)
+    warmup = torch.optim.lr_scheduler.LinearLR(
+        opt, start_factor=0.05, end_factor=1.0, total_iters=warmup_epochs)
+    decay = torch.optim.lr_scheduler.StepLR(opt, step_size=step_size, gamma=0.4)
+    sched = torch.optim.lr_scheduler.SequentialLR(
+        opt, schedulers=[warmup, decay], milestones=[warmup_epochs])
 
 
     K = 6.0  # sigmoid scaling (cp = ev*600 => /100 => *6)
@@ -217,7 +258,6 @@ def main():
 
     best = 1e9
     rng = np.random.RandomState(11)
-    bs = 512
     vwi, vbi, vph = sl(val_sel)
     vr = torch.from_numpy(results[val_sel]).to(device)
     vsc = torch.from_numpy(scores[val_sel]).to(device)
@@ -248,7 +288,7 @@ def main():
             torch.save(net.state_dict(), out + ".state")
         sched.step()
 
-    sd = torch.load(out + ".state")
+    sd = torch.load(out + ".state", map_location="cpu")
     qw1 = np.clip(np.round(sd["w1"].numpy() * 32), -32768, 32767).astype("<i2")
     qw2 = np.clip(np.round(sd["w2"].numpy() * (1 << OUT_SHIFT)), -32768, 32767).astype("<i2")
     with open(out, "wb") as f:

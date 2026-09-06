@@ -1,0 +1,13 @@
+name: experion
+version: 0.1.0
+
+authors:
+  - Joey Robert <joey@joeyrobert.org>
+
+targets:
+  experion:
+    main: src/experion_cli.cr
+
+crystal: '>= 1.21.0'
+
+license: MIT

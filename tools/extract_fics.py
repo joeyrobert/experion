@@ -68,30 +68,40 @@ def main():
                 continue
 
             # walk the game
-            board = game.board()
+            try:
+                board = game.board()
+            except Exception:
+                continue
             ply = 0
             positions_in_game = 0
-            for move in game.mainline_moves():
-                board.push(move)
-                ply += 1
-                # extract at midgame plies
-                if ply < min_ply or ply > max_ply:
-                    continue
-                if ply % 4 != 0:
-                    continue
-                if board.is_check():
-                    continue
-                if not is_quiet(board):
-                    continue
-                # write FEN;result;0
-                fen = board.fen()
-                out.write(f"{fen};{result};0\n")
-                positions_in_game += 1
-                emitted += 1
-                if positions_in_game >= 20:  # cap per game
-                    break
-                if emitted >= target:
-                    break
+            try:
+                moves_iter = list(game.mainline_moves())
+            except Exception:
+                continue
+            try:
+                for move in moves_iter:
+                    board.push(move)
+                    ply += 1
+                    # extract at midgame plies
+                    if ply < min_ply or ply > max_ply:
+                        continue
+                    if ply % 4 != 0:
+                        continue
+                    if board.is_check():
+                        continue
+                    if not is_quiet(board):
+                        continue
+                    # write FEN;result;0
+                    fen = board.fen()
+                    out.write(f"{fen};{result};0\n")
+                    positions_in_game += 1
+                    emitted += 1
+                    if positions_in_game >= 20:
+                        break
+                    if emitted >= target:
+                        break
+            except Exception:
+                continue
 
     out.close()
     print(f"Processed {processed} games, emitted {emitted} positions", file=sys.stderr)

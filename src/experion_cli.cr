@@ -4,6 +4,7 @@ require "./experion"
 require "./experion/bench"
 require "./experion/uci"
 require "./experion/genficsdata"
+require "./experion/scorefics"
 
 module Experion
   def self.main(args : Array(String)) : Int32
@@ -64,6 +65,10 @@ module Experion
       min_ply = args[4]?.try(&.to_i?) || 16
       max_ply = args[5]?.try(&.to_i?) || 120
       GenFicsData.run(in_path, out_path, target, min_ply, max_ply)
+    when "score-fics"
+      in_path = args[1]? || raise "missing input txt path"
+      out_path = args[2]? || "training_fics_scored.txt"
+      ScoreFics.run(in_path, out_path)
     when "search"
       # quick non-UCI search test: experion search <depth> <fen>
       depth = args[1]?.try(&.to_i?) || 8

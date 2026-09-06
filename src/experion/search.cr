@@ -477,6 +477,21 @@ module Experion
         @moves[j + 1] = e
         i2 += 1
       end
+
+      # store the root decision itself so pv_string (TT-walk from root)
+      # reports the same move the engine actually returns as bestmove.
+      # Without this, root's TT slot is whatever a transposing child node
+      # happened to leave behind, which can differ from @moves[0].move.
+      if legal > 0 && !@stop.get
+        flags = if best <= alpha
+                  TT::FLAG_UPPER
+                elsif best >= beta
+                  TT::FLAG_LOWER
+                else
+                  TT::FLAG_EXACT
+                end
+        @tt.store(pos.hash, @moves[0].move, @tt.score_to_tt(best, 0), depth, flags)
+      end
       best
     end
 
