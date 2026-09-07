@@ -75,7 +75,30 @@ class Net2(torch.nn.Module):
         return out[:, 0] * ph + out[:, 1] * (1.0 - ph)
 
 
-def run(net_cls, name, cache, results, scores, tr_sel, val_sel, bs=4096, lr=1e-2):
+TEST_FENS = [
+    ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", "K+2R vs K"),
+    ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "startpos"),
+    ("4k3/8/8/8/8/8/8/RRR1K3 w Q - 0 1", "K+3R vs K"),
+    ("3qk3/8/8/8/8/8/8/4K3 w - - 0 1", "black Q vs K"),
+]
+
+
+def print_sanity(net, name):
+    net.eval()
+    with torch.no_grad():
+        for fen, label in TEST_FENS:
+            w, b, ph = nt.fen_features(fen)
+            wi = torch.full((1, 34), -1, dtype=torch.long)
+            bi = torch.full((1, 34), -1, dtype=torch.long)
+            wi[0, :len(w)] = torch.tensor(w)
+            bi[0, :len(b)] = torch.tensor(b)
+            phase = torch.tensor([float(ph)])
+            ev = net(wi.to(device), bi.to(device), phase.to(device))
+            print(f"[{name}] {label}: ~{ev.item()*600:.0f}cp", flush=True)
+    net.train()
+
+
+def run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode="per_row", bs=4096, lr=1e-2):
     net = net_cls().to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=0.001)
     warmup_epochs = max(3, epochs // 20)
@@ -90,7 +113,16 @@ def run(net_cls, name, cache, results, scores, tr_sel, val_sel, bs=4096, lr=1e-2
         l_wdl = (sig_r - r) ** 2
         target = torch.clamp(sc / 600.0, -12.0, 12.0)
         l_score = (ev - target) ** 2
-        return (l_wdl + l_score).mean()
+        if loss_mode == "combined":
+            # OLD behavior: every row gets both loss terms regardless of
+            # whether it has a real result and/or a real score.
+            return (l_wdl + l_score).mean()
+        # NEW (per-row masked): each row only contributes the loss term(s)
+        # for signals it actually has.
+        r_mask = (torch.abs(r - 0.5) > 0.01).to(ev.dtype)
+        sc_mask = (torch.abs(sc) > 0.01).to(ev.dtype)
+        n_signals = (r_mask + sc_mask).clamp(min=1.0)
+        return ((r_mask * l_wdl + sc_mask * l_score) / n_signals).mean()
 
     def sl(sel):
         return (torch.from_numpy(cache["wi"][sel]).to(device),
@@ -135,6 +167,7 @@ def run(net_cls, name, cache, results, scores, tr_sel, val_sel, bs=4096, lr=1e-2
             print(f"[{name}] epoch {ep+1}: lr={opt.param_groups[0]['lr']:.5f} train={tot/max(nb,1):.4f} val={vl:.4f}", flush=True)
         sched.step()
     print(f"[{name}] FINAL best val loss: {best:.4f}", flush=True)
+    print_sanity(net, name)
     return best
 
 
@@ -145,7 +178,23 @@ val_sel = np.arange(0, n_val)
 tr_sel = np.arange(n_val, len(results))
 print(f"{len(tr_sel)} train / {len(val_sel)} val", flush=True)
 
-b1 = run(Net1, "1-layer (current)", cache, results, scores, tr_sel, val_sel)
-b2 = run(Net2, "2-layer (+hidden)", cache, results, scores, tr_sel, val_sel)
+# Isolation matrix: architecture x loss-selection-mode, one variable changed
+# at a time, so a bad result can be attributed to a specific change instead
+# of "something in the combination of everything changed at once" (exactly
+# the failure mode that made the final full-scale run of the session
+# uninterpretable). ONLY_2L_PER_ROW=1 runs just that one combo (used to test
+# the same config against a different data sample without re-running all 4).
+import os
+results_table = {}
+if os.environ.get("ONLY_2L_PER_ROW"):
+    combos = [(Net2, "2-layer", "per_row")]
+else:
+    combos = [(nc, an, m) for nc, an in [(Net1, "1-layer"), (Net2, "2-layer")] for m in ["combined", "per_row"]]
+for net_cls, arch_name, mode in combos:
+    name = f"{arch_name}/{mode}"
+    b = run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode=mode)
+    results_table[name] = b
 
-print(f"\n=== RESULT ===\n1-layer best val: {b1:.4f}\n2-layer best val: {b2:.4f}\ndelta: {b1 - b2:+.4f} ({'2-layer better' if b2 < b1 else '1-layer better'})", flush=True)
+print("\n=== ISOLATION RESULT ===")
+for name, b in results_table.items():
+    print(f"{name}: best val {b:.4f}")
