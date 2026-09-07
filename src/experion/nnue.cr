@@ -2,11 +2,20 @@
 #
 # Mirrors tools/nnue_train.py exactly:
 #   features : 2 x 768 HalfKA (piece-color-square, both perspectives)
-#   w1       : 1536 x H int16, feature-major (feature*H + h), Q1 = 1024
-#   acc      : int16[H] per perspective, plain sum of w1 rows
-#   act      : clamp(acc_w[h] + acc_b[h], 0, Q1)
-#   out_c    : sum_h act[h] * w2[c][h] >> 12     (int64 accumulator)
+#   w1       : 1536 x H int16, feature-major (feature*H + h), scale *32
+#   acc      : int32[H] per perspective, plain sum of w1 rows
+#   act      : clamp(acc_w[h] + acc_b[h], -512, 512)                [a, per h]
+#   hidden   : clamp((a . wh[:,j] + bh[j]) >> WH_SHIFT, 0, 512)     [per j]
+#   out_c    : (hidden . w2[c]) >> W2_SHIFT
 #   eval cp  : (blend(out_mg, out_eg) * 600) >> 9
+#
+# File format "ENN2": magic(4) H(4) HID(4) wh_shift(4) w2_shift(4) then
+# w1(1536*H int16), wh(H*HID int16), bh(HID int16), w2(2*HID int16).
+# wh_shift/w2_shift are chosen per-export from the ACTUAL trained weight
+# magnitudes (see nnue_train.py's pick_shift) — a fixed shift picked in the
+# abstract (the original OUT_SHIFT=20) silently overflowed int16 by ~70x for
+# hours earlier this session before being caught by a direct sanity check
+# against known positions. Never hardcode a shift here without that check.
 #
 # The accumulator lives in the searcher's stack (one 2*H row per ply); make
 # sites update it incrementally via `apply_delta`.
@@ -20,19 +29,17 @@ module Experion
   module Nnue
     extend self
 
-    Q1     = 1024
-    # must match tools/nnue_train.py's OUT_SHIFT exactly. 20 let trained w2
-    # (commonly magnitude ~2-3) overflow int16 by up to ~70x at export time,
-    # silently corrupting the output layer — every net exported with the old
-    # value evaluates as near-degenerate regardless of training quality.
-    OUT_SHIFT = 12
-
     @@w1 : Pointer(Int16)? = nil
+    @@wh : Pointer(Int16)? = nil
+    @@bh : Pointer(Int16)? = nil
     @@w2 : Pointer(Int16)? = nil
     @@enabled = false
     @@disabled_by_option = false
     @@blend = 100
-    @@h : Int32 = 256        # hidden width from the loaded file
+    @@h : Int32 = 256        # hidden accumulator width from the loaded file
+    @@hid : Int32 = 32       # second hidden layer width from the loaded file
+    @@wh_shift : Int32 = 0
+    @@w2_shift : Int32 = 0
     @@acc_row : Int32 = 512  # 2 * h
 
     def self.h : Int32
@@ -71,24 +78,42 @@ module Experion
         @@enabled = false
         return false
       end
-      return false unless data.size > 8 && data[0, 4] == "ENN1"
+      return false unless data.size > 20 && data[0, 4] == "ENN2"
 
       h = IO::Memory.new(data)
-      hdr = Bytes.new(8)
+      hdr = Bytes.new(20)
       h.read_fully(hdr)
       hh = IO::ByteFormat::LittleEndian.decode(Int32, hdr[4, 4])
-      return false unless hh.in?(64..4096)
+      hid = IO::ByteFormat::LittleEndian.decode(Int32, hdr[8, 4])
+      wh_shift = IO::ByteFormat::LittleEndian.decode(Int32, hdr[12, 4])
+      w2_shift = IO::ByteFormat::LittleEndian.decode(Int32, hdr[16, 4])
+      return false unless hh.in?(64..4096) && hid.in?(1..1024)
 
       @@h = hh
+      @@hid = hid
+      @@wh_shift = wh_shift
+      @@w2_shift = w2_shift
       @@acc_row = hh * 2
+
       @@w1 = Pointer(Int16).malloc(1536 * hh)
-      @@w2 = Pointer(Int16).malloc(2 * hh)
       bytes_w1 = Bytes.new(1536 * hh * 2)
       h.read_fully(bytes_w1)
       LibMemory.memcpy(@@w1.not_nil!.as(Void*), bytes_w1.to_unsafe.as(Void*), 1536 * hh * 2)
-      bytes_w2 = Bytes.new(2 * hh * 2)
+
+      @@wh = Pointer(Int16).malloc(hh * hid)
+      bytes_wh = Bytes.new(hh * hid * 2)
+      h.read_fully(bytes_wh)
+      LibMemory.memcpy(@@wh.not_nil!.as(Void*), bytes_wh.to_unsafe.as(Void*), hh * hid * 2)
+
+      @@bh = Pointer(Int16).malloc(hid)
+      bytes_bh = Bytes.new(hid * 2)
+      h.read_fully(bytes_bh)
+      LibMemory.memcpy(@@bh.not_nil!.as(Void*), bytes_bh.to_unsafe.as(Void*), hid * 2)
+
+      @@w2 = Pointer(Int16).malloc(2 * hid)
+      bytes_w2 = Bytes.new(2 * hid * 2)
       h.read_fully(bytes_w2)
-      LibMemory.memcpy(@@w2.not_nil!.as(Void*), bytes_w2.to_unsafe.as(Void*), 2 * hh * 2)
+      LibMemory.memcpy(@@w2.not_nil!.as(Void*), bytes_w2.to_unsafe.as(Void*), 2 * hid * 2)
 
       @@enabled = true
       true
@@ -192,28 +217,58 @@ module Experion
     # Evaluate from an accumulator row. Returns cp from the POV OF WHITE
     # scaled to centipawns (stm flip applied by caller like classical eval).
     def self.evaluate(row : Pointer(Int32), phase : Int32, stm_white : Bool) : Int32
+      wh = @@wh.not_nil!
+      bh = @@bh.not_nil!
       w2 = @@w2.not_nil!
       hw = @@h
-      out_mg = 0i64
-      out_eg = 0i64
+      hid = @@hid
+
+      # act (`a`, per accumulator unit): combine both perspectives, clamp
+      # to +-512. Stack-allocated scratch since hid/hw are small (<=4096/1024).
+      a = StaticArray(Int32, 4096).new(0)
       h = 0
       while h < hw
-        a = row[h] + row[hw + h]
-        a = -512 if a < -512
-        a = 512 if a > 512
-        out_mg += a.to_i64 * w2[h].to_i64
-        out_eg += a.to_i64 * w2[hw + h].to_i64
+        v = row[h] + row[hw + h]
+        v = -512 if v < -512
+        v = 512 if v > 512
+        a[h] = v
         h += 1
       end
-      out_mg >>= OUT_SHIFT
-      out_eg >>= OUT_SHIFT
+
+      # hidden layer: clipped ReLU, per output unit j
+      hidden = StaticArray(Int32, 1024).new(0)
+      j = 0
+      while j < hid
+        acc = bh[j].to_i64
+        h = 0
+        while h < hw
+          acc += a[h].to_i64 * wh[h * hid + j].to_i64
+          h += 1
+        end
+        v = (acc >> @@wh_shift).to_i32!
+        v = 0 if v < 0
+        v = 512 if v > 512
+        hidden[j] = v
+        j += 1
+      end
+
+      out_mg = 0i64
+      out_eg = 0i64
+      j = 0
+      while j < hid
+        out_mg += hidden[j].to_i64 * w2[j].to_i64
+        out_eg += hidden[j].to_i64 * w2[hid + j].to_i64
+        j += 1
+      end
+      out_mg >>= @@w2_shift
+      out_eg >>= @@w2_shift
+
       ph = phase.clamp(0, 24)
       blended = (out_mg * ph + out_eg * (24 - ph)) // 24
-      # >> 9 (not 10): the engine's integer activation (`a`, range +-512)
-      # is never divided by 512 the way Python's float `act` is before the
-      # matmul, so `blended` here is exactly 512x Python's `ev`. Shifting by
-      # 9 (=512) cancels that leftover factor; the training script's ev*600
-      # is the actual target scale.
+      # >> 9 (not 10): the engine's integer hidden-layer output (range
+      # +-512) is never divided by 512 the way Python's float model is
+      # before the final matmul, so `blended` here is exactly 512x Python's
+      # `ev`. Shifting by 9 (=512) cancels that leftover factor.
       cp = (blended * 600) >> 9
       cp = stm_white ? cp : -cp
       cp.to_i32!

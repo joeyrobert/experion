@@ -256,8 +256,12 @@ module Experion
       end
 
       # --- king attack pressure (middlegame) ---------------------------------
+      # `color`'s own pieces attacking the zone around the ENEMY king (not
+      # its own king — that would reward a side for merely having pieces
+      # near its own king, the opposite of an attack-pressure bonus, and
+      # never penalize a real mating attack against it).
       {% for color in [0, 1] %}
-        ksq_att = pos.king_sq({{color}})
+        ksq_att = pos.king_sq({{color}} ^ 1)
         zone = Tables.king_attacks(ksq_att) | (1u64 << ksq_att)
         pres = 0
         kn_a = pos.pieces_of({{color}}, KNIGHT)
