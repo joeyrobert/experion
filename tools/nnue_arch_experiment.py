@@ -98,9 +98,9 @@ def print_sanity(net, name):
     net.train()
 
 
-def run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode="per_row", bs=4096, lr=1e-2):
+def run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode="per_row", bs=4096, lr=1e-2, wd=0.001):
     net = net_cls().to(device)
-    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=0.001)
+    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=wd)
     warmup_epochs = max(3, epochs // 20)
     warmup = torch.optim.lr_scheduler.LinearLR(opt, start_factor=0.05, end_factor=1.0, total_iters=warmup_epochs)
     decay = torch.optim.lr_scheduler.StepLR(opt, step_size=max(epochs // 3, 1), gamma=0.4)
@@ -190,9 +190,10 @@ if os.environ.get("ONLY_2L_PER_ROW"):
     combos = [(Net2, "2-layer", "per_row")]
 else:
     combos = [(nc, an, m) for nc, an in [(Net1, "1-layer"), (Net2, "2-layer")] for m in ["combined", "per_row"]]
+wd_override = float(os.environ["WD"]) if os.environ.get("WD") else 0.001
 for net_cls, arch_name, mode in combos:
     name = f"{arch_name}/{mode}"
-    b = run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode=mode)
+    b = run(net_cls, name, cache, results, scores, tr_sel, val_sel, loss_mode=mode, wd=wd_override)
     results_table[name] = b
 
 print("\n=== ISOLATION RESULT ===")

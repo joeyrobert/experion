@@ -281,6 +281,32 @@ def main():
                 tot_n += len(sel)
         return tot_l / max(tot_n, 1)
 
+    # Sanity-check positions, evaluated periodically during training (not
+    # just post-hoc): validation loss alone never caught the large-dataset
+    # degradation found this session — it's dominated by the much more
+    # common near-balanced positions, so a collapse specifically in extreme-
+    # material representation doesn't move it. This is the only check that
+    # did catch it.
+    sanity_fens = [
+        ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", "K+2R"),
+        ("4k3/8/8/8/8/8/8/RRR1K3 w Q - 0 1", "K+3R"),
+        ("3qk3/8/8/8/8/8/8/4K3 w - - 0 1", "-Q"),
+    ]
+
+    def sanity_str():
+        parts = []
+        with torch.no_grad():
+            for fen, label in sanity_fens:
+                w, b, ph_ = fen_features(fen)
+                swi = torch.full((1, 34), -1, dtype=torch.long)
+                sbi = torch.full((1, 34), -1, dtype=torch.long)
+                swi[0, :len(w)] = torch.tensor(w)
+                sbi[0, :len(b)] = torch.tensor(b)
+                sph = torch.tensor([float(ph_)])
+                ev = net(swi.to(device), sbi.to(device), sph.to(device))
+                parts.append(f"{label}={ev.item()*600:.0f}")
+        return " ".join(parts)
+
     for ep in range(epochs):
         perm = rng.permutation(len(tr_sel))
         tot, nb = 0.0, 0
@@ -299,7 +325,7 @@ def main():
             tot += loss.item()
             nb += 1
         vl = eval_val_loss()
-        print(f"epoch {ep+1}: lr={opt.param_groups[0]['lr']:.5f} train={tot/max(nb,1):.4f} val={vl:.4f}", flush=True)
+        print(f"epoch {ep+1}: lr={opt.param_groups[0]['lr']:.5f} train={tot/max(nb,1):.4f} val={vl:.4f} sanity[{sanity_str()}]", flush=True)
         if vl < best:
             best = vl
             torch.save(net.state_dict(), out + ".state")
