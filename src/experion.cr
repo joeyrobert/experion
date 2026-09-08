@@ -28,5 +28,10 @@ module Experion
     if p = ENV["EXPERION_NNUE"]?
       Nnue.load(p)
     end
+    # optional override for tools (like epdtest) that don't go through the
+    # UCI "setoption EvalBlend" path
+    if b = ENV["EXPERION_BLEND"]?
+      Nnue.set_blend(b.to_i? || 100)
+    end
   end
 end
