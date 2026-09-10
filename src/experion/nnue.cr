@@ -1,21 +1,43 @@
+# ENN4 is the current color-preserving, incrementally evaluated network.
+# Train with tools/train_nnue_v4.py; see load_v4/evaluate_v4 below for its
+# format. ENN3 remains loadable for comparison with historical checkpoints.
+# The following format notes describe that legacy architecture only.
+#
 # NNUE evaluation.
 #
 # Mirrors tools/nnue_train.py exactly:
-#   features : 2 x 768 HalfKA (piece-color-square, both perspectives)
-#   w1       : 1536 x H int16, feature-major (feature*H + h), scale *32
+#   features : king-bucketed HalfKA. Each perspective's own king square picks
+#              a bucket (file quadrant, KING_BUCKETS=4: a-b/c-d/e-f/g-h) and
+#              ALL of that perspective's piece features are offset into that
+#              bucket's block: idx = bucket*1536 + slot*768 + ptype*64 + rel.
+#              This lets the net learn different piece-square values depending
+#              on which side of the board its own king sits on — the flat
+#              (unbucketed) HalfKA net could not express this at all, which
+#              measurement (STS: 32.4% classical vs 6.8% pure NNUE) pointed to
+#              as the main remaining positional-judgment gap. See
+#              docs/nnue-session-findings.md.
+#   w1       : (1536*KING_BUCKETS) x H int16, feature-major (feature*H + h)
 #   acc      : int32[H] per perspective, plain sum of w1 rows
 #   act      : clamp(acc_w[h] + acc_b[h], -512, 512)                [a, per h]
 #   hidden   : clamp((a . wh[:,j] + bh[j]) >> WH_SHIFT, 0, 512)     [per j]
 #   out_c    : (hidden . w2[c]) >> W2_SHIFT
 #   eval cp  : (blend(out_mg, out_eg) * 600) >> 9
 #
-# File format "ENN2": magic(4) H(4) HID(4) wh_shift(4) w2_shift(4) then
-# w1(1536*H int16), wh(H*HID int16), bh(HID int16), w2(2*HID int16).
+# File format "ENN3": magic(4) H(4) HID(4) wh_shift(4) w2_shift(4)
+# king_buckets(4) then w1(1536*KING_BUCKETS*H int16), wh(H*HID int16),
+# bh(HID int16), w2(2*HID int16).
 # wh_shift/w2_shift are chosen per-export from the ACTUAL trained weight
 # magnitudes (see nnue_train.py's pick_shift) — a fixed shift picked in the
 # abstract (the original OUT_SHIFT=20) silently overflowed int16 by ~70x for
 # hours earlier this session before being caught by a direct sanity check
 # against known positions. Never hardcode a shift here without that check.
+#
+# CRITICAL: because a perspective's own king square selects its entire
+# feature block, moving that king changes every one of that perspective's
+# feature indices, not just the king's own. Any king move (not just castling)
+# therefore forces a full accumulator rebuild via `refresh` — incremental
+# `apply_delta` is only valid when neither side's king moves. See push_acc in
+# search.cr.
 #
 # The accumulator lives in the searcher's stack (one 2*H row per ply); make
 # sites update it incrementally via `apply_delta`.
@@ -41,6 +63,10 @@ module Experion
     @@wh_shift : Int32 = 0
     @@w2_shift : Int32 = 0
     @@acc_row : Int32 = 512  # 2 * h
+    @@king_buckets : Int32 = 1
+    @@v4 = false
+    @@bias : Pointer(Int16)? = nil
+    FEATURES_PER_BUCKET = 1536
 
     def self.h : Int32
       @@h
@@ -78,27 +104,31 @@ module Experion
         @@enabled = false
         return false
       end
-      return false unless data.size > 20 && data[0, 4] == "ENN2"
+      return load_v4(data) if data.size >= 8 && data[0, 4] == "ENN4"
+      return false unless data.size > 24 && data[0, 4] == "ENN3"
 
       h = IO::Memory.new(data)
-      hdr = Bytes.new(20)
+      hdr = Bytes.new(24)
       h.read_fully(hdr)
       hh = IO::ByteFormat::LittleEndian.decode(Int32, hdr[4, 4])
       hid = IO::ByteFormat::LittleEndian.decode(Int32, hdr[8, 4])
       wh_shift = IO::ByteFormat::LittleEndian.decode(Int32, hdr[12, 4])
       w2_shift = IO::ByteFormat::LittleEndian.decode(Int32, hdr[16, 4])
-      return false unless hh.in?(64..4096) && hid.in?(1..1024)
+      kb = IO::ByteFormat::LittleEndian.decode(Int32, hdr[20, 4])
+      return false unless hh.in?(64..4096) && hid.in?(1..1024) && kb.in?(1..64)
 
       @@h = hh
       @@hid = hid
       @@wh_shift = wh_shift
       @@w2_shift = w2_shift
       @@acc_row = hh * 2
+      @@king_buckets = kb
 
-      @@w1 = Pointer(Int16).malloc(1536 * hh)
-      bytes_w1 = Bytes.new(1536 * hh * 2)
+      w1_rows = FEATURES_PER_BUCKET * kb
+      @@w1 = Pointer(Int16).malloc(w1_rows * hh)
+      bytes_w1 = Bytes.new(w1_rows * hh * 2)
       h.read_fully(bytes_w1)
-      LibMemory.memcpy(@@w1.not_nil!.as(Void*), bytes_w1.to_unsafe.as(Void*), 1536 * hh * 2)
+      LibMemory.memcpy(@@w1.not_nil!.as(Void*), bytes_w1.to_unsafe.as(Void*), w1_rows * hh * 2)
 
       @@wh = Pointer(Int16).malloc(hh * hid)
       bytes_wh = Bytes.new(hh * hid * 2)
@@ -116,15 +146,56 @@ module Experion
       LibMemory.memcpy(@@w2.not_nil!.as(Void*), bytes_w2.to_unsafe.as(Void*), 2 * hid * 2)
 
       @@enabled = true
+      @@v4 = false
       true
     end
 
+    # ENN4: magic, UInt32 width, feature-major Int16[768,width+1],
+    # bias[width], phase output weights[2,width]. The final feature lane is
+    # a learned linear PSQT path (scale 8); other lanes use scale 255.
+    private def self.load_v4(data : String) : Bool
+      width = IO::ByteFormat::LittleEndian.decode(Int32, data.to_slice[4, 4])
+      return false unless width.in?(32..1024)
+      expected = 8 + (768 * (width + 1) + 3 * width) * 2
+      return false unless data.bytesize == expected
+      weights = Pointer(Int16).malloc((expected - 8) // 2)
+      io = IO::Memory.new(data.to_slice[8..])
+      ((expected - 8) // 2).times do |i|
+        weights[i] = io.read_bytes(Int16, IO::ByteFormat::LittleEndian)
+      end
+      @@h = width + 1
+      @@acc_row = 2 * @@h
+      @@w1 = weights
+      @@bias = weights + 768 * @@h
+      @@w2 = @@bias.not_nil! + width
+      @@king_buckets = 1
+      @@v4 = true
+      @@enabled = true
+      true
+    end
+
+    # Queenside (a-d) vs kingside (e-h) king bucket. Depends only on file, so
+    # it is unaffected by the rank-mirroring used for POV1 squares. MUST
+    # match tools/nnue_train.py's king_bucket exactly — this is the mapping
+    # from square to bucket index, not just the bucket count (which is read
+    # from the file header and doesn't need to match code on this side).
     @[AlwaysInline]
-    def feature_index(pc : Int, sq : Int, pov : Int) : Int32
+    def self.king_bucket(sq : Int) : Int32
+      return 0 if @@king_buckets == 1
+      (sq.to_i! & 7) < 4 ? 0 : 1
+    end
+
+    @[AlwaysInline]
+    def feature_index(pc : Int, sq : Int, pov : Int, bucket : Int) : Int32
       pc = pc.to_i!
       sq = sq.to_i!
       color = pc // 6
       ptype = pc % 6
+      if @@v4
+        relative_color = color ^ pov.to_i!
+        relative_square = pov.zero? ? sq : sq ^ 56
+        return relative_color * 384 + ptype * 64 + relative_square
+      end
       if pov.zero?
         rel = color.zero? ? sq : sq ^ 56
         slot = color.zero? ? 0 : 1
@@ -132,7 +203,7 @@ module Experion
         rel = color.zero? ? sq ^ 56 : sq
         slot = color.zero? ? 1 : 0
       end
-      slot * 768 + ptype * 64 + rel
+      bucket.to_i! * FEATURES_PER_BUCKET + slot * 768 + ptype * 64 + rel
     end
 
     # dst = src adjusted by removals then additions. Indices are per
@@ -186,10 +257,14 @@ module Experion
       end
     end
 
-    # Rebuild an accumulator row from scratch (used at root).
+    # Rebuild an accumulator row from scratch (used at root and after any
+    # king move, since a moving king changes that perspective's bucket for
+    # EVERY feature, not just its own).
     def self.refresh(row : Pointer(Int32), pos : Position) : Nil
       w1 = @@w1.not_nil!
       hw = @@h
+      wbucket = king_bucket(pos.king_sq(WHITE))
+      bbucket = king_bucket(pos.king_sq(BLACK))
       h = 0
       while h < @@acc_row
         row[h] = 0
@@ -199,8 +274,8 @@ module Experion
       while sq < 64
         pc = pos.piece_at(sq)
         unless pc == NO_PIECE
-          fi_w = feature_index(pc, sq, 0)
-          fi_b = feature_index(pc, sq, 1)
+          fi_w = feature_index(pc, sq, 0, wbucket)
+          fi_b = feature_index(pc, sq, 1, bbucket)
           base_w = fi_w * hw
           base_b = fi_b * hw
           h = 0
@@ -217,6 +292,7 @@ module Experion
     # Evaluate from an accumulator row. Returns cp from the POV OF WHITE
     # scaled to centipawns (stm flip applied by caller like classical eval).
     def self.evaluate(row : Pointer(Int32), phase : Int32, stm_white : Bool) : Int32
+      return evaluate_v4(row, phase, stm_white) if @@v4
       wh = @@wh.not_nil!
       bh = @@bh.not_nil!
       w2 = @@w2.not_nil!
@@ -272,6 +348,28 @@ module Experion
       cp = (blended * 600) >> 9
       cp = stm_white ? cp : -cp
       cp.to_i32!
+    end
+
+    private def self.evaluate_v4(row : Pointer(Int32), phase : Int32, stm_white : Bool) : Int32
+      width = @@h - 1
+      bias = @@bias.not_nil!
+      output = @@w2.not_nil!
+      mg = 0i64
+      eg = 0i64
+      i = 0
+      while i < width
+        w = (row[i] + bias[i]).clamp(0, 255)
+        b = (row[@@h + i] + bias[i]).clamp(0, 255)
+        delta = (w - b).to_i64
+        mg += delta * output[i]
+        eg += delta * output[width + i]
+        i += 1
+      end
+      ph = phase.clamp(0, 24)
+      neural = (mg * ph + eg * (24 - ph)) // (24 * 255 * 64)
+      linear = (row[width] - row[@@h + width]) // 16
+      cp = (neural + linear).clamp(-28000, 28000).to_i32
+      (stm_white ? cp : -cp) + 12
     end
   end
 end

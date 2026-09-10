@@ -3,13 +3,16 @@
 #
 # usage: run_match.sh [tc] [rounds]
 #
-# THREADS defaults to 1: lazy-SMP (think_smp in search.cr) measurably HURTS
-# play quality (17.5% vs Vice single-threaded, ~0% at Threads=8 in the same
-# match setup) — root cause not yet diagnosed (suspected: worker threads
-# polluting the shared TT with entries from more-aggressively-reduced,
-# lower-quality searches, since TT replacement favors "deeper" entries by
-# nominal depth regardless of how much real work produced them). Override
-# with THREADS=N only once that's fixed and re-validated.
+# THREADS defaults to 4: lazy-SMP (think_smp in search.cr) used to
+# measurably HURT play quality (17.5% vs Vice single-threaded, ~0% at
+# Threads=4/8 in the same match setup) — root cause was a real data race
+# on TT#@age (a plain UInt8 bumped from every thread with no
+# synchronization, corrupting the replacement-policy check). Fixed by
+# making it an Atomic(UInt8) — see docs/nnue-session-findings.md. Threads=4
+# is now validated at parity-or-slightly-ahead of Threads=1 across the
+# ladder (this machine has 4 physical performance cores; Threads=6-8
+# remain untested post-fix and may still pay a real hardware-contention
+# cost). Override with THREADS=N to test other counts.
 set -e
 BASE=/Users/joey/Repos/experion
 FC=$BASE/tools/match/fastchess-mac-arm64/fastchess
@@ -34,7 +37,7 @@ esac
 $FC \
   -engine cmd=$BASE/bin/experion name=Experion ${BLEND:+option.EvalBlend=$BLEND} \
   -engine cmd=$OPP_BIN name=$OPP_NAME ${OPP_ARGS:+args="$OPP_ARGS"} \
-  -each tc="$TC" option.Threads=${THREADS:-1} option.Hash=256 \
+  -each tc="$TC" option.Threads=${THREADS:-4} option.Hash=256 \
   -rounds "$ROUNDS" -games 2 -repeat \
   -openings file=$BASE/tools/match/openings.pgn format=pgn order=random \
   -ratinginterval 10 -concurrency ${CONC:-2} \

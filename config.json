@@ -60,7 +60,7 @@
     },
     "config_name": "config.json",
     "output": 1,
-    "seed": 8650983080101652116,
+    "seed": 1656186874642240538,
     "variant": 0,
     "type": 0,
     "gauntlet_seeds": 1,
@@ -69,7 +69,7 @@
     "wait": 0,
     "autosaveinterval": 20,
     "games": 2,
-    "rounds": 8,
+    "rounds": 15,
     "concurrency": 1,
     "force_concurrency": false,
     "recover": false,
@@ -97,7 +97,7 @@
             "options": [
                 [
                     "Threads",
-                    "1"
+                    "4"
                 ],
                 [
                     "Hash",
@@ -106,9 +106,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 200,
+                    "increment": 100,
                     "fixed_time": 0,
-                    "time": 15000,
+                    "time": 10000,
                     "moves": 0,
                     "timemargin": 0
                 },
@@ -126,7 +126,7 @@
             "options": [
                 [
                     "Threads",
-                    "1"
+                    "4"
                 ],
                 [
                     "Hash",
@@ -135,9 +135,9 @@
             ],
             "limit": {
                 "tc": {
-                    "increment": 200,
+                    "increment": 100,
                     "fixed_time": 0,
-                    "time": 15000,
+                    "time": 10000,
                     "moves": 0,
                     "timemargin": 0
                 },
@@ -149,9 +149,9 @@
     ],
     "stats": {
         "Experion vs Vice11_CCRL1997": {
-            "wins": 3,
-            "losses": 13,
-            "draws": 0,
+            "wins": 2,
+            "losses": 27,
+            "draws": 1,
             "penta_WW": 0,
             "penta_WD": 0,
             "penta_WL": 0,

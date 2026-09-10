@@ -7,6 +7,21 @@ require "./experion/genficsdata"
 require "./experion/scorefics"
 
 module Experion
+  # Runs a single fixed-movetime search and returns {completed_depth, nodes, ms}.
+  # Used by the `smpdiag` diagnostic to measure the primary thread's real
+  # throughput under a real time-based search, not fixed depth.
+  def self.smpdiag_run_one(pos : Position, movetime : Int64) : {Int32, UInt64, Int64}
+    limits = Limits.new
+    limits.soft_ms = movetime
+    limits.hard_ms = movetime
+    s = Searcher.new
+    s.verbose = false
+    t0 = Time.instant
+    s.think(pos, [] of UInt64, limits)
+    dt = (Time.instant - t0).total_milliseconds.to_i64!
+    {s.last_completed_depth, s.nodes, dt}
+  end
+
   def self.main(args : Array(String)) : Int32
     init_engine
     cmd = args[0]?
@@ -69,6 +84,43 @@ module Experion
       in_path = args[1]? || raise "missing input txt path"
       out_path = args[2]? || "training_fics_scored.txt"
       ScoreFics.run(in_path, out_path)
+    when "smpdiag"
+      # Phase 1 SMP diagnostic: measure the PRIMARY thread's real nodes/
+      # depth/nps for a fixed movetime, once solo and once with N-1 worker
+      # threads concurrently active (each worker gets its own isolated TT,
+      # so this isolates hardware/OS contention from shared-TT effects,
+      # which were already ruled out separately this session).
+      #   experion smpdiag <threads> <movetime_ms> [fen]
+      threads = args[1]?.try(&.to_i?) || 4
+      movetime = (args[2]?.try(&.to_i?) || 2000).to_i64!
+      fen = args[3]? || STARTPOS_FEN
+      pos = Position.new(fen)
+
+      depth0, nodes0, ms0 = smpdiag_run_one(pos, movetime)
+      nps0 = ms0 > 0 ? nodes0 * 1000 // ms0 : nodes0
+      printf("solo:       depth=%d nodes=%d time=%dms nps=%d\n", depth0, nodes0, ms0, nps0)
+
+      if threads > 1
+        stop = SearchStop.new
+        workers = Array(Thread).new(threads - 1)
+        (1...threads).each do |i|
+          workers << Thread.new do
+            w = Searcher.new(TT.new, stop, i % 2)
+            w.verbose = false
+            w.raw_output = true
+            limits = Limits.new
+            limits.soft_ms = movetime
+            limits.hard_ms = movetime
+            w.think(pos, [] of UInt64, limits)
+          end
+        end
+        depth1, nodes1, ms1 = smpdiag_run_one(pos, movetime)
+        stop.set(true)
+        workers.each(&.join)
+        nps1 = ms1 > 0 ? nodes1 * 1000 // ms1 : nodes1
+        printf("w/%d workers: depth=%d nodes=%d time=%dms nps=%d\n", threads - 1, depth1, nodes1, ms1, nps1)
+        printf("primary nps ratio (concurrent/solo): %.2f\n", nps1.to_f / nps0)
+      end
     when "search"
       # quick non-UCI search test: experion search <depth> <fen>
       depth = args[1]?.try(&.to_i?) || 8

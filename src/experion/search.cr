@@ -7,6 +7,20 @@
 # across both game history and the live search path.
 
 module Experion
+  # Atomic itself is a value type. Share a reference containing it so every
+  # worker observes the same storage rather than a copy of the stop flag.
+  class SearchStop
+    @value = Atomic(Bool).new(false)
+
+    def get : Bool
+      @value.get
+    end
+
+    def set(value : Bool) : Nil
+      @value.set(value)
+    end
+  end
+
   struct MoveEntry
     property move : UInt16
     property score : Int32
@@ -51,6 +65,8 @@ module Experion
     property? verbose : Bool
     @last_score : Int32 = 0
     getter last_score : Int32
+    @last_completed_depth : Int32 = 0
+    getter last_completed_depth : Int32
 
     # When true, info lines are written with raw LibC.write instead of
     # Crystal IO. Required when searching inside a bare Thread (no execution
@@ -58,7 +74,7 @@ module Experion
     property? raw_output : Bool
 
     @tt : TT
-    @stop : Atomic(Bool)
+    @stop : SearchStop
     @killers : StaticArray(UInt16, KILLER_N)
     @counters : StaticArray(UInt16, COUNTER_N)
     @conthist : Pointer(Int32)
@@ -77,9 +93,9 @@ module Experion
     @eval_cache : Pointer(UInt64) = Pointer(UInt64).malloc(2 * 262144)
     @eval_cache_mask : UInt64 = 262143u64
 
-    def initialize(@tt : TT = TT.new, shared_stop : Atomic(Bool)? = nil,
+    def initialize(@tt : TT = TT.new, shared_stop : SearchStop? = nil,
                    worker_bias : Int32 = 0)
-      @stop = shared_stop || Atomic(Bool).new(false)
+      @stop = shared_stop || SearchStop.new
       @killers = StaticArray(UInt16, KILLER_N).new(0u16)
       @counters = StaticArray(UInt16, COUNTER_N).new(0u16)
       @conthist = Pointer(Int32).malloc(CONTHIST_N)
@@ -120,7 +136,9 @@ module Experion
 
     def new_game : Nil
       @tt.new_game
+      @eval_cache.clear(2 * 262144)
       @killers.fill(0u16)
+      @counters.fill(0u16)
       @history.fill(0)
       i = 0
       while i < CONTHIST_N
@@ -130,7 +148,7 @@ module Experion
     end
 
     # The stop flag, so SMP workers can share one with the primary searcher.
-    def stop_atom : Atomic(Bool)
+    def stop_atom : SearchStop
       @stop
     end
 
@@ -138,12 +156,16 @@ module Experion
       @stop.set(true)
     end
 
+    def prepare_search : Nil
+      @stop.set(false)
+    end
+
     def stopped? : Bool
       @stop.get
     end
 
     # Compute NNUE accumulator for `child` (result of playing `m` on `pos`)
-    # into row `child_ply`, based on row `parent_ply`. Call BEFORE make_move.
+    # into row `child_ply`, based on row `parent_ply`. Call AFTER make_move; pos is the parent and child is the resulting board.
     private def push_acc(pos : Position, m : UInt16, parent_ply : Int32,
                          child_ply : Int32, child : Position) : Nil
       return unless Nnue.enabled?
@@ -151,8 +173,14 @@ module Experion
       from = mv_from(m)
       to = mv_to(m)
 
-      # castling moves three pieces: fall back to a full rebuild after make
-      if pos.piece_at(from).to_i % 6 == KING && (from - to).abs == 2
+      # King buckets make EVERY feature of the moving side's perspective
+      # depend on that king's square (not just the king's own feature), so
+      # any king move (not just castling) invalidates incremental delta
+      # updates for that perspective. Full-rebuild both halves rather than
+      # tracking which single perspective needs it: king moves are rare
+      # enough in the tree that the simplicity is worth the extra half-row
+      # of work, and it keeps this path far easier to reason about.
+      if pos.piece_at(from).to_i % 6 == KING
         Nnue.refresh(@accs + child_ply * Nnue.acc_row, child)
         return
       end
@@ -167,14 +195,19 @@ module Experion
       promo = mv_promo_type(m)
       placed = promo.zero? ? pc : (us * 6 + promo)
 
-      rmw1 = Nnue.feature_index(pc, from, 0)
-      rmb1 = Nnue.feature_index(pc, from, 1)
-      addw = Nnue.feature_index(placed, to, 0)
-      addb = Nnue.feature_index(placed, to, 1)
+      # Neither king moves on this path, so both perspectives' king buckets
+      # are stable across the move and can be read once from `pos`.
+      wbucket = Nnue.king_bucket(pos.king_sq(WHITE))
+      bbucket = Nnue.king_bucket(pos.king_sq(BLACK))
+
+      rmw1 = Nnue.feature_index(pc, from, 0, wbucket)
+      rmb1 = Nnue.feature_index(pc, from, 1, bbucket)
+      addw = Nnue.feature_index(placed, to, 0, wbucket)
+      addb = Nnue.feature_index(placed, to, 1, bbucket)
 
       if captured != NO_PIECE.to_i
-        rmw2 = Nnue.feature_index(captured, cap_sq, 0)
-        rmb2 = Nnue.feature_index(captured, cap_sq, 1)
+        rmw2 = Nnue.feature_index(captured, cap_sq, 0, wbucket)
+        rmb2 = Nnue.feature_index(captured, cap_sq, 1, bbucket)
         Nnue.apply_delta(@accs + child_ply * Nnue.acc_row,
           @accs + parent_ply * Nnue.acc_row,
           rmw1, rmb1, rmw2, rmb2, addw, addb, 0, 0, 2, 1)
@@ -206,7 +239,7 @@ module Experion
       end
 
       # blend classical and NNUE eval when NNUE is enabled
-      v_class = Eval.evaluate(pos)
+      v_class = Nnue.enabled? && Nnue.blend == 100 ? 0 : Eval.evaluate(pos)
       if Nnue.enabled?
         # NNUE: use the incrementally updated accumulator
         v_nnue = Nnue.evaluate(@accs + ply * Nnue.acc_row, pos.phase, pos.stm == WHITE.to_u8!)
@@ -228,7 +261,7 @@ module Experion
     # Public-facing eval: refresh the NNUE accumulator for `pos` and
     # return the blend-applied value. Used by the UCI `eval` command.
     def eval_for(pos : Position) : Int32
-      v_class = Eval.evaluate(pos)
+      v_class = Nnue.enabled? && Nnue.blend == 100 ? 0 : Eval.evaluate(pos)
       if Nnue.enabled?
         Nnue.refresh(@accs, pos)
         v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!)
@@ -253,21 +286,22 @@ module Experion
 
     # --- Lazy SMP entry ------------------------------------------------------------
     #
-    # N searchers share one TT (lockless: 64-bit aligned stores make torn
-    # entries merely look like misses) and one stop atom. Each worker runs a
+    # N searchers share one TT with atomic packed entry loads/stores and
+    # one stop flag. Each worker runs a
     # full iterative search; the primary worker's move is used. Workers are
     # pure computation — no Crystal IO from these threads.
 
     def think_smp(root : Position, game_hashes : Array(UInt64), limits : Limits,
-                  threads : Int32) : UInt16
+                  threads : Int32, reset_stop : Bool = true) : UInt16
+      prepare_search if reset_stop
       # SMP startup/join overhead dominates tiny budgets; scale down
       eff = threads
       if !limits.soft_ms.zero? && limits.soft_ms < 150 && eff > 2
         eff = 2
       end
-      return think(root, game_hashes, limits) if eff <= 1
+      return think(root, game_hashes, limits, false) if eff <= 1
 
-      shared_stop = Atomic(Bool).new(false)
+      shared_stop = @stop
       results = StaticArray(UInt16, 16).new(Moves::MOVE_NONE)
       done = Atomic(Int32).new(0)
 
@@ -276,14 +310,14 @@ module Experion
         workers << Thread.new do
           w = Searcher.new(@tt, shared_stop, i % 2 == 1 ? 1 : 0)
           w.verbose = false
-          mv = w.think(root, game_hashes, limits)
+          mv = w.think(root, game_hashes, limits, false)
           results[i] = mv
           done.add(1)
         end
       end
 
       # primary: this searcher, printing info as usual
-      best = think(root, game_hashes, limits)
+      best = think(root, game_hashes, limits, false)
       results[0] = best
       shared_stop.set(true)
       workers.each(&.join)
@@ -293,10 +327,10 @@ module Experion
     # --- public entry -------------------------------------------------------------
 
     # Returns the best move found; prints UCI info lines as iterations complete.
-    def think(root : Position, game_hashes : Array(UInt64), limits : Limits) : UInt16
+    def think(root : Position, game_hashes : Array(UInt64), limits : Limits, reset_stop : Bool = true) : UInt16
       raise "position history too long" if game_hashes.size + MAX_PLY > HASH_SIZE - 2
 
-      @stop.set(false)
+      prepare_search if reset_stop
       @nodes = 0u64
       @start_time = Time.instant
       @killers.fill(0u16)
@@ -326,6 +360,11 @@ module Experion
       # root move list: order by simple MVV-LVA + center bias so the first
       # iteration's "best move" is more likely to actually be best
       root_count = pos.generate(@scratch)
+      if root_count == 0
+        @last_score = pos.in_check? ? -Eval::MATE : 0
+        @last_completed_depth = 0
+        return Moves::MOVE_NONE
+      end
       ri = 0
       while ri < root_count
         m = @scratch[ri]
@@ -409,6 +448,7 @@ module Experion
         best_move = @moves[0].move
       end
       @last_score = best_score
+      @last_completed_depth = last_completed
       best_move
     end
 
@@ -424,8 +464,8 @@ module Experion
         m = @moves[i].move
 
         child = pos
-        push_acc(pos, m, 0, 1, child)
         child.make_move(m)
+        push_acc(pos, m, 0, 1, child)
         @hashes[@base_ply + 1] = child.hash
         legal += 1
 
@@ -435,7 +475,7 @@ module Experion
         else
           r = 0
           if depth >= 3 && legal > 3 &&
-             child.piece_at(mv_to(m)) == NO_PIECE && mv_promo_type(m) == 0 && !gives_check
+             quiet_move?(pos, m) && !pos.in_check? && !gives_check
             r = @lmr[depth.clamp(0, 63) * 64 + legal.clamp(0, 63)]
             r = depth - 2 if r > depth - 2
             r = 0 if r < 0
@@ -506,6 +546,7 @@ module Experion
       @seldepth = ply if ply > @seldepth
       check_stop(limits)
       return 0 if @stop.get
+      return evaluate_search(pos, ply) if ply >= MAX_PLY - 2
 
       # mate distance pruning
       a = -Eval::MATE + ply if a < -Eval::MATE + ply
@@ -546,14 +587,14 @@ module Experion
       # verification search to see if it's MUCH better than all alternatives.
       # If singular, extend the TT move's search by 1 ply (or 2 for double).
       singular_ext = 0
-      if tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && !in_check &&
+      if tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && tt_depth >= depth - 3 && !in_check &&
          tt_score.abs < Eval::MATE_IN_MAX && (tt_flags == TT::FLAG_EXACT || tt_flags == TT::FLAG_LOWER)
         # do a reduced-depth search excluding the TT move; if no alternative
         # can match the TT score minus a margin, the move is singular
         verify_beta = tt_score - 2 * depth
         if verify_beta > -Eval::MATE_IN_MAX && verify_beta < b
           # search all moves except tt_move at reduced depth with verify_beta
-          singular = singular_check(pos, ply, tt_move, depth - 1, verify_beta, limits, prev_m)
+          singular = singular_check(pos, ply, tt_move, (depth - 1) // 2, verify_beta, limits, prev_m)
           if singular
             singular_ext = 1
             # double extension: if the original TT depth is much higher than
@@ -566,8 +607,6 @@ module Experion
       # internal iterative reduction: without a hash move, search one ply
       # less — the IIR is cheaper than IID and gives most of the benefit.
       depth -= 1 if tt_move == Moves::MOVE_NONE && depth >= 5 && !in_check
-
-      depth += singular_ext
 
       static_eval = evaluate_search(pos, ply)
       @sevals[ply] = static_eval
@@ -591,6 +630,9 @@ module Experion
         @hashes[@base_ply + ply + 1] = np.hash
         r = 2 + depth // 5
         r += 1 if depth > 7
+        # eval-scaled: the more static_eval clears beta by, the more
+        # confident the null-move cutoff is safe, so reduce further.
+        r += Math.min((static_eval - b) // 200, 3)
         score = -negamax(np, depth - 1 - r, -b, -b + 1, ply + 1, limits, false)
         return b if score >= b && score.abs < Eval::MATE_IN_MAX
       end
@@ -607,7 +649,10 @@ module Experion
         m = pick_best(ply, count, i)
 
         pc = pos.piece_at(mv_from(m)).to_i
-        quiet = pos.piece_at(mv_to(m)) == NO_PIECE && mv_promo_type(m) == 0
+        quiet = quiet_move?(pos, m)
+        child = pos
+        child.make_move(m)
+        gives_check = child.in_check?
 
         # recapture extension: capturing on the previously-contested square
         recapture = !quiet && prev_m != Moves::MOVE_NONE &&
@@ -615,7 +660,7 @@ module Experion
 
         # futility pruning: hopeless quiets and clearly-losing captures
         prune_futility = false
-        if !in_check && legal >= 1 && b.abs < Eval::MATE_IN_MAX
+        if !in_check && !gives_check && mv_promo_type(m) == 0 && legal >= 1 && b.abs < Eval::MATE_IN_MAX
           if quiet
             prune_futility = true if depth <= 2 &&
                                     static_eval + FUTILITY[depth] <= a
@@ -632,7 +677,7 @@ module Experion
         # late move pruning: at low depth, very late quiets are almost
         # never the best move. Aggressive pruning hurts in tactical lines.
         prune_lmp = false
-        if !in_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
+        if !in_check && !gives_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
           lmp_margin = if depth == 1
                         4
                       elsif depth == 2
@@ -642,21 +687,18 @@ module Experion
                       else
                         14
                       end
-          lmp_margin -= 2 if improving
+          lmp_margin += 2 if improving
           prune_lmp = true if legal > lmp_margin
         end
 
         unless prune_futility || prune_lmp
-          child = pos
           push_acc(pos, m, ply, ply + 1, child)
-          child.make_move(m)
           @hashes[@base_ply + ply + 1] = child.hash
           legal += 1
 
-          gives_check = child.in_check?
           score = 0
 
-          dchild = depth - 1 + (recapture ? 1 : 0)
+          dchild = depth - 1 + (recapture ? 1 : 0) + (m == tt_move ? singular_ext : 0)
           if legal == 1
             score = -negamax(child, dchild, -b, -a, ply + 1, limits, true, m)
           else
@@ -664,7 +706,7 @@ module Experion
             if depth >= 3 && legal > 3 && quiet && !in_check && !gives_check
               r = @lmr[depth.clamp(0, 63) * 64 + legal.clamp(0, 63)]
               h = @history[pc * 64 + mv_to(m)]
-              r -= 1 if pc // 6 != PAWN && h > 4000
+              r -= 1 if pc % 6 != PAWN && h > 4000
               r += 1 if legal > 6 && h < 80
               r = depth - 2 if r > depth - 2
               r = 0 if r < 0
@@ -739,6 +781,7 @@ module Experion
       @seldepth = ply if ply > @seldepth
       check_stop(limits)
       return 0 if @stop.get
+      return 0 if repetition?(pos, ply) || pos.halfmove >= 100 || Eval.insufficient_material?(pos)
 
       in_check = pos.in_check?
 
@@ -765,6 +808,8 @@ module Experion
         ci += 1
       end
 
+      return 0 if !in_check && count == 0 && pos.generate(@scratch) == 0
+
       if in_check
         # no stand-pat in check; mate/stalemate decided by legal replies
         best = -INF
@@ -782,8 +827,8 @@ module Experion
         while i < count
           m = pick_best_q(buf, count, i)
           child = pos
-          push_acc(pos, m, ply, ply + 1, child)
           child.make_move(m)
+          push_acc(pos, m, ply, ply + 1, child)
           @hashes[@base_ply + ply + 1] = child.hash
           legal += 1
           score = -qsearch(child, -beta, -alpha, ply + 1, limits)
@@ -830,7 +875,7 @@ module Experion
           m = @scratch[j]
           child = pos
           child.make_move(m)
-          if child.in_check?(child.stm.to_i ^ 1)
+          if quiet_move?(pos, m) && child.in_check?
             buf[check_count] = MoveEntry.new(m, QUEEN_PROMO + 100)
             check_count += 1
           end
@@ -858,8 +903,8 @@ module Experion
 
         unless prune
           child = pos
-          push_acc(pos, m, ply, ply + 1, child)
           child.make_move(m)
+          push_acc(pos, m, ply, ply + 1, child)
           @hashes[@base_ply + ply + 1] = child.hash
 
           score = -qsearch(child, -beta, -a, ply + 1, limits)
@@ -887,6 +932,13 @@ module Experion
     end
 
     # --- helpers -----------------------------------------------------------------------
+
+    private def quiet_move?(pos : Position, m : UInt16) : Bool
+      return false if pos.piece_at(mv_to(m)) != NO_PIECE || mv_promo_type(m) != 0
+      # Pawn diagonals to empty squares are en passant captures.
+      pos.piece_at(mv_from(m)).to_i % 6 != PAWN ||
+        (mv_from(m) & 7) == (mv_to(m) & 7)
+    end
 
     @[AlwaysInline]
     private def move_ptr(ply : Int32) : Pointer(MoveEntry)
@@ -1008,8 +1060,8 @@ module Experion
         i += 1
         next if m == skip
         child = pos
-        push_acc(pos, m, ply, ply + 1, child)
         child.make_move(m)
+        push_acc(pos, m, ply, ply + 1, child)
         @hashes[@base_ply + ply + 1] = child.hash
         score = -negamax(child, depth, -beta, -a, ply + 1, limits, true, m)
         if score >= beta

@@ -65,9 +65,15 @@ module Experion
             elsif name == "Threads"
               threads = value.to_i?.try(&.clamp(1, 8)) || 1
             elsif name == "Use NNUE"
+              searcher.stop!
+              search_thread.try(&.join)
               Nnue.set_option(value != "false")
+              searcher.new_game
             elsif name == "EvalBlend"
+              searcher.stop!
+              search_thread.try(&.join)
               Nnue.set_blend(value.to_i?.try(&.clamp(0, 100)) || 100)
+              searcher.new_game
             end
           end
         when "ucinewgame"
@@ -88,9 +94,10 @@ module Experion
           # Crystal IO — the searcher emits info lines via raw write, and the
           # final bestmove is written the same way.
           searcher.raw_output = true
+          searcher.prepare_search
           t = Thread.new do
-            best = searcher.think_smp(pos, game_hashes, limits, threads)
-            line = "bestmove #{best == Moves::MOVE_NONE ? "(none)" : Moves.mv_uci(best)}\n"
+            best = searcher.think_smp(pos, game_hashes, limits, threads, false)
+            line = "bestmove #{best == Moves::MOVE_NONE ? "0000" : Moves.mv_uci(best)}\n"
             Raw.write_stdout(line)
           end
           search_thread = t

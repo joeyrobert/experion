@@ -35,3 +35,7 @@ nnue*.bin*
 
 # abandoned/experimental code snapshots, not the active engine
 /variants/
+/datasets/
+
+# Reproducible local benchmark artifacts and source snapshots
+/experiments/

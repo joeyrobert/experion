@@ -44,6 +44,12 @@ module Experion
       (b & ~FILE_A_BB) >> 1
     end
 
+    def passed_pawns(pawns : UInt64, enemies : UInt64, color : Int32) : UInt64
+      files = enemies | east_one(enemies) | west_one(enemies)
+      blocked = color == WHITE ? south_fill(files >> 8) : north_fill(files << 8)
+      pawns & ~blocked
+    end
+
     @[AlwaysInline]
     def evaluate(pos : Position) : Int32
       ph = pos.phase
@@ -59,10 +65,8 @@ module Experion
 
       # --- pawn structure -----------------------------------------------------
       # passed pawns: no enemy pawns on same or adjacent files ahead
-      bp_front = north_fill(bp | east_one(bp) | west_one(bp))
-      passed_w = wp & ~bp_front
-      wp_front = south_fill(wp | east_one(wp) | west_one(wp))
-      passed_b = bp & ~wp_front
+      passed_w = passed_pawns(wp, bp, WHITE)
+      passed_b = passed_pawns(bp, wp, BLACK)
 
       wksq = pos.king_sq(WHITE)
       bksq = pos.king_sq(BLACK)
@@ -141,7 +145,7 @@ module Experion
       occ = pos.occ_all
 
       # --- rook placement -------------------------------------------------------
-      all_pawn_files = north_fill(wp | bp)
+      all_pawn_files = south_fill(wp | bp)
       {% for color in [0, 1] %}
         sign = {{color == 0 ? 1 : -1}}
         rooks = pos.pieces_of({{color}}, ROOK)
@@ -152,7 +156,7 @@ module Experion
           if (all_pawn_files & fbit).zero?
             d_mg += sign * 24
             d_eg += sign * 8
-          elsif ({% if color == 0 %} wp {% else %} bp {% end %} & fbit).zero?
+          elsif (south_fill({% if color == 0 %} wp {% else %} bp {% end %}) & fbit).zero?
             d_mg += sign * 11
             d_eg += sign * 4
           end
@@ -344,9 +348,6 @@ module Experion
       d_mg -= 26 if pos.pieces_of(BLACK, BISHOP).popcount >= 2
       d_eg -= 40 if pos.pieces_of(BLACK, BISHOP).popcount >= 2
 
-      mg += d_mg
-      eg += d_eg
-
       # --- hung pieces -----------------------------------------------------
       # for each non-pawn piece, see if any enemy piece attacks it. If
       # so, check if a friendly piece can recapture. If not, it's a
@@ -388,12 +389,8 @@ module Experion
       eg += d_eg
 
       score = (mg * ph + eg * (24 - ph)) // 24
-      # tempo always belongs to the side that has the initiative (white in
-      # normal chess, since they move first). Add to white's POV value
-      # first, then flip at the end so the caller gets side-to-move POV.
-      score += TEMPO
-
-      pos.stm == WHITE.to_u8! ? score : -score
+      # Initiative belongs to the side to move, in either color.
+      (pos.stm == WHITE.to_u8! ? score : -score) + TEMPO
     end
 
     # No way to force mate: bare kings, or king + single minor vs bare king.

@@ -27,18 +27,18 @@ module Experion
       @mask = (@size - 1).to_u64!
       @entries = Pointer(UInt64).malloc(@size)
       @entries.clear(@size)
-      @age = 0u8
+      @age = Atomic(UInt8).new(0u8)
     end
 
     def new_game : Nil
       @entries.clear(@size)
-      @age = 0u8
+      @age.set(0u8)
     end
 
     @[AlwaysInline]
     def probe(hash : UInt64) : {Bool, UInt16, Int32, Int32, UInt8}
-      e = @entries[hash & @mask]
-      if (e >> 48).to_u16! == (hash >> 48).to_u16!
+      e = Atomic::Ops.load(@entries + (hash & @mask), :monotonic, false)
+      if e != 0 && (e >> 48).to_u16! == (hash >> 48).to_u16!
         move = (e & 0xFFFF).to_u16!
         score = ((e >> 16) & 0xFFFF).to_u16!.to_i16!.to_i32!
         depth = ((e >> 32) & 0xFF).to_i32!
@@ -49,15 +49,20 @@ module Experion
       end
     end
 
+    # Shared across worker threads in think_smp (each searcher's own @tt is
+    # the same instance) — must be a real atomic RMW. A plain UInt8 field
+    # bumped from multiple threads concurrently can lose increments or hand
+    # out a torn read to `store`'s replacement-policy check, both of which
+    # are silent correctness bugs, not just noise.
     def bump_age : Nil
-      @age = (@age &+ 1) & 0x3Fu8
+      @age.add(1u8)
     end
 
     def store(hash : UInt64, move : UInt16, score : Int32, depth : Int32, flags : UInt8) : Nil
       idx = hash & @mask
-      old = @entries[idx]
+      old = Atomic::Ops.load(@entries + idx, :monotonic, false)
       depth = depth.clamp(0, 255)
-      cur_age = @age.to_i32!
+      cur_age = @age.get.to_i32! & 0x3F
 
       if old != 0
         old_depth = ((old >> 32) & 0xFF).to_i32!
@@ -89,9 +94,9 @@ module Experion
       entry = move.to_u64 |
               (s16.to_u16!.to_u64 << 16) |
               (depth.to_u64 << 32) |
-              ((flags.to_u64 | (@age.to_u64 << 2)) << 40) |
+              ((flags.to_u64 | (cur_age.to_u64 << 2)) << 40) |
               ((hash >> 48) << 48)
-      @entries[idx] = entry
+      Atomic::Ops.store(@entries + idx, entry, :monotonic, false)
     end
 
     # mate scores are stored relative to the node they were found at
