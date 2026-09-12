@@ -65,47 +65,78 @@ def main():
     p.add_argument('--lr', type=float, default=.003)
     p.add_argument('--seed', type=int, default=20260908)
     p.add_argument('--device', default='cuda:0')
+    p.add_argument('--resume', default='', help='path to a prior Net state_dict (.pt)')
+    p.add_argument('--freeze-linear', action='store_true',
+                   help='do not train the material/PSQT linear path')
+    p.add_argument('--eval-weight', type=float, default=.9,
+                   help='weight on search-score MSE (sigmoid cp/400)')
+    p.add_argument('--wdl-weight', type=float, default=.1,
+                   help='weight on game-result MSE')
     args = p.parse_args()
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     torch.set_num_threads(4)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    man_path = Path(args.data) / 'manifest.json'
     metadata = dict(vars(args), torch_version=torch.__version__, numpy_version=np.__version__,
                     python=sys.version, device_name=torch.cuda.get_device_name(args.device) if args.device.startswith('cuda') else args.device,
-                    dataset=json.loads((Path(args.data) / 'manifest.json').read_text()))
+                    dataset=json.loads(man_path.read_text()) if man_path.exists() else None)
     (out / 'config.json').write_text(json.dumps(metadata, indent=2))
     data = {}
     for split in ('train', 'val'):
-        data[split] = [torch.as_tensor(np.load(Path(args.data) / (split + '_' + s + '.npy')), device=args.device,
-                                      dtype=torch.long if s in ('w', 'b') else torch.float32) for s in ('w', 'b', 'targets')]
+        # Keep feature indices as int16 on CPU. Casting 20M rows to int64
+        # here used ~10GB and fought the host's 22GB with a packer still up.
+        # embedding_bag wants Long; cast per batch on the way to the GPU.
+        data[split] = [
+            torch.from_numpy(np.load(Path(args.data) / (split + '_' + s + '.npy'))).contiguous()
+            for s in ('w', 'b', 'targets')
+        ]
     net = Net(args.width).to(args.device)
-    opt = torch.optim.Adam(net.parameters(), lr=args.lr)
+    if args.resume:
+        net.load_state_dict(torch.load(args.resume, map_location=args.device, weights_only=True))
+        print(json.dumps({'resume': args.resume}), flush=True)
+    if args.freeze_linear:
+        net.linear.weight.requires_grad_(False)
+        print(json.dumps({'freeze_linear': True}), flush=True)
+    params = [p for p in net.parameters() if p.requires_grad]
+    opt = torch.optim.Adam(params, lr=args.lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs, eta_min=args.lr * .05)
     def loss(ev, target):
         # Search scores are the primary signal, with all actual game results
         # (including draws) retained. No missing-label inference from values.
         pred = torch.sigmoid(ev / 400)
-        return .9 * (pred - torch.sigmoid(target[:, 1] / 400)).square().mean() + .1 * (pred - target[:, 2]).square().mean()
+        return (args.eval_weight * (pred - torch.sigmoid(target[:, 1] / 400)).square().mean()
+                + args.wdl_weight * (pred - target[:, 2]).square().mean())
+    def batch_on_device(split, ix):
+        w, b, t = data[split]
+        ix = ix.cpu()
+        return (w[ix].to(dtype=torch.long, device=args.device, non_blocking=True),
+                b[ix].to(dtype=torch.long, device=args.device, non_blocking=True),
+                t[ix].to(dtype=torch.float32, device=args.device, non_blocking=True))
     best = float('inf')
     for epoch in range(1, args.epochs + 1):
         start = time.monotonic()
         w, b, t = data['train']
-        order = torch.randperm(len(w), device=args.device)
+        order = torch.randperm(len(w))
         total = 0.
         net.train()
         for ix in order.split(args.batch):
+            bw, bb, bt = batch_on_device('train', ix)
             opt.zero_grad(set_to_none=True)
-            err = loss(net(w[ix], b[ix], t[ix, 0]), t[ix])
+            err = loss(net(bw, bb, bt[:, 0]), bt)
             err.backward()
             opt.step()
             total += err.item() * len(ix)
         sched.step()
         net.eval()
         with torch.no_grad():
-            vw, vb, vt = data['val']
-            vl = sum(loss(net(vw[ix], vb[ix], vt[ix, 0]), vt[ix]).item() * len(ix)
-                     for ix in torch.arange(len(vw), device=args.device).split(args.batch)) / len(vw)
+            vw = data['val'][0]
+            vl = 0.
+            for ix in torch.arange(len(vw)).split(args.batch):
+                bw, bb, bt = batch_on_device('val', ix)
+                vl += loss(net(bw, bb, bt[:, 0]), bt).item() * len(ix)
+            vl /= len(vw)
         net.export(out / f'epoch-{epoch:03d}.bin')
         if vl < best:
             best = vl

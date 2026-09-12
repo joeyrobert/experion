@@ -62,6 +62,7 @@ module Experion
 
       wp = pos.pieces_of(WHITE, PAWN)
       bp = pos.pieces_of(BLACK, PAWN)
+      occ = pos.occ_all
 
       # --- pawn structure -----------------------------------------------------
       # passed pawns: no enemy pawns on same or adjacent files ahead
@@ -77,6 +78,11 @@ module Experion
         rr = sq >> 3
         d_mg += PASSED_MG[rr]
         d_eg += PASSED_EG[rr]
+        # blocked: a piece sitting on the stop square blunts the passer
+        if rr < 7 && ((1u64 << (sq + 8)) & occ) != 0
+          d_mg -= PASSED_MG[rr] // 3
+          d_eg -= PASSED_EG[rr] // 4
+        end
         # endgame: passers shine when OUR king escorts and THEIR king is far
         df = (sq & 7) - (bksq & 7)
         dr = (sq >> 3) - (bksq >> 3)
@@ -104,6 +110,10 @@ module Experion
         rr = 7 - (sq >> 3)
         d_mg -= PASSED_MG[rr]
         d_eg -= PASSED_EG[rr]
+        if rr < 7 && ((1u64 << (sq - 8)) & occ) != 0
+          d_mg += PASSED_MG[rr] // 3
+          d_eg += PASSED_EG[rr] // 4
+        end
         df = (sq & 7) - (wksq & 7)
         dr = (sq >> 3) - (wksq >> 3)
         d_eg -= ((df.abs > dr.abs ? df.abs : dr.abs) * 5)
@@ -124,6 +134,14 @@ module Experion
         pb &= pb - 1
       end
 
+      # connected passers: each member of an adjacent-file pair
+      conn_w = (east_one(passed_w) | west_one(passed_w)) & passed_w
+      d_mg += 10 * conn_w.popcount
+      d_eg += 22 * conn_w.popcount
+      conn_b = (east_one(passed_b) | west_one(passed_b)) & passed_b
+      d_mg -= 10 * conn_b.popcount
+      d_eg -= 22 * conn_b.popcount
+
       # doubled pawns
       dbl_w = wp & north_fill(wp << 8)
       dbl_b = bp & south_fill(bp >> 8)
@@ -142,7 +160,43 @@ module Experion
       d_mg += 14 * iso_b.popcount
       d_eg += 16 * iso_b.popcount
 
-      occ = pos.occ_all
+      # pawn islands: extra groups of files cost in the endgame
+      files_w = south_fill(wp) & 0xFFu64
+      files_b = south_fill(bp) & 0xFFu64
+      if files_w != 0
+        islands = (files_w & ~(files_w << 1)).popcount
+        d_mg -= 5 * (islands - 1)
+        d_eg -= 12 * (islands - 1)
+      end
+      if files_b != 0
+        islands = (files_b & ~(files_b << 1)).popcount
+        d_mg += 5 * (islands - 1)
+        d_eg += 12 * (islands - 1)
+      end
+
+      # backward pawns: stop square hit by an enemy pawn, no neighbor behind
+      b_pawn_atk = ((bp & ~FILE_A_BB) >> 9) | ((bp & ~FILE_H_BB) >> 7)
+      bw = ((wp << 8) & b_pawn_atk) >> 8
+      while bw != 0
+        sq = bw.trailing_zeros_count.to_i!
+        span = south_fill(1u64 << sq)
+        if ((east_one(span) | west_one(span)) & wp) == 0
+          d_mg -= 8
+          d_eg -= 12
+        end
+        bw &= bw - 1
+      end
+      w_pawn_atk = ((wp & ~FILE_A_BB) << 7) | ((wp & ~FILE_H_BB) << 9)
+      bw = ((bp >> 8) & w_pawn_atk) << 8
+      while bw != 0
+        sq = bw.trailing_zeros_count.to_i!
+        span = north_fill(1u64 << sq)
+        if ((east_one(span) | west_one(span)) & bp) == 0
+          d_mg += 8
+          d_eg += 12
+        end
+        bw &= bw - 1
+      end
 
       # --- rook placement -------------------------------------------------------
       all_pawn_files = south_fill(wp | bp)
@@ -163,6 +217,30 @@ module Experion
           rk &= rk - 1
         end
       {% end %}
+
+      # rook on the 7th, with the enemy king trapped on the 8th or pawns to eat
+      wr7 = pos.pieces_of(WHITE, ROOK) & Tables::RANK_BB[6]
+      if wr7 != 0 &&
+         ((pos.pieces_of(BLACK, KING) & RANK_8_BB) != 0 || (bp & Tables::RANK_BB[6]) != 0)
+        n = wr7.popcount
+        d_mg += 18 * n
+        d_eg += 32 * n
+        if n >= 2
+          d_mg += 12
+          d_eg += 20
+        end
+      end
+      br2 = pos.pieces_of(BLACK, ROOK) & Tables::RANK_BB[1]
+      if br2 != 0 &&
+         ((pos.pieces_of(WHITE, KING) & RANK_1_BB) != 0 || (wp & Tables::RANK_BB[1]) != 0)
+        n = br2.popcount
+        d_mg -= 18 * n
+        d_eg -= 32 * n
+        if n >= 2
+          d_mg -= 12
+          d_eg -= 20
+        end
+      end
 
       # --- king shelter (middlegame) ---------------------------------------------
       {% for color in [0, 1] %}
@@ -189,6 +267,32 @@ module Experion
           d_mg += sign2 * (cnt - 2) * 12
         end
       {% end %}
+
+      # pawn storm: our pawns advancing on the files of the enemy king
+      bkf = bksq & 7
+      storm = wp
+      while storm != 0
+        sq = storm.trailing_zeros_count.to_i!
+        df = ((sq & 7) - bkf).abs
+        rr = sq >> 3
+        if df <= 1 && rr >= 4 && rr <= 6
+          s = (df == 0 ? 10 : 6) + (rr - 4) * 8
+          d_mg += s
+        end
+        storm &= storm - 1
+      end
+      wkf = wksq & 7
+      storm = bp
+      while storm != 0
+        sq = storm.trailing_zeros_count.to_i!
+        df = ((sq & 7) - wkf).abs
+        rr = sq >> 3
+        if df <= 1 && rr >= 1 && rr <= 3
+          s = (df == 0 ? 10 : 6) + (3 - rr) * 8
+          d_mg -= s
+        end
+        storm &= storm - 1
+      end
 
       {% unless flag?(:slow_eval) %}
       # --- mobility -----------------------------------------------------------------
@@ -258,6 +362,35 @@ module Experion
         d_eg -= c
         qu &= qu - 1
       end
+
+      # king tropism: knights and queens closer to the enemy king
+      {% for color in [0, 1] %}
+        sign_t = {{color == 0 ? 1 : -1}}
+        ek = pos.king_sq({{color}} ^ 1)
+        kn_t = pos.pieces_of({{color}}, KNIGHT)
+        while kn_t != 0
+          s = kn_t.trailing_zeros_count.to_i!
+          df = ((s & 7) - (ek & 7)).abs
+          dr = ((s >> 3) - (ek >> 3)).abs
+          d = df > dr ? df : dr
+          d_mg += sign_t * (4 - d) * 4 if d <= 4
+          kn_t &= kn_t - 1
+        end
+        q_t = pos.pieces_of({{color}}, QUEEN)
+        while q_t != 0
+          s = q_t.trailing_zeros_count.to_i!
+          df = ((s & 7) - (ek & 7)).abs
+          dr = ((s >> 3) - (ek >> 3)).abs
+          d = df > dr ? df : dr
+          d_mg += sign_t * (5 - d) * 3 if d <= 5
+          q_t &= q_t - 1
+        end
+      {% end %}
+
+      # space: advanced centre pawns
+      centre = 0x3c3c3c3c3c3c3c3cu64
+      d_mg += 5 * (wp & centre & (Tables::RANK_BB[3] | Tables::RANK_BB[4] | Tables::RANK_BB[5])).popcount
+      d_mg -= 5 * (bp & centre & (Tables::RANK_BB[2] | Tables::RANK_BB[3] | Tables::RANK_BB[4])).popcount
 
       # --- king attack pressure (middlegame) ---------------------------------
       # `color`'s own pieces attacking the zone around the ENEMY king (not
@@ -349,36 +482,19 @@ module Experion
       d_eg -= 40 if pos.pieces_of(BLACK, BISHOP).popcount >= 2
 
       # --- hung pieces -----------------------------------------------------
-      # for each non-pawn piece, see if any enemy piece attacks it. If
-      # so, check if a friendly piece can recapture. If not, it's a
-      # tactical problem. The penalty is the piece value times a
-      # small fraction (most positions have a defender).
+      # A piece attacked by anything and not defended at all. Penalizing
+      # "pawn-attacked even if a heavier piece defends" (v//6) scored 40%
+      # vs Sungorus over 20 games, worse than hang-veto alone.
       {% for color in [0, 1] %}
         sign_h = {{color == 0 ? 1 : -1}}
         {% for pt in [KNIGHT, BISHOP, ROOK, QUEEN] %}
           pcs_h = pos.pieces_of({{color}}, {{pt}})
           while pcs_h != 0
             sq_h = pcs_h.trailing_zeros_count.to_i!
-            # any enemy piece attacks this square?
-            attacked = (Tables.pawn_attacks({{color}}, sq_h) & pos.pieces_of({{color}} ^ 1, PAWN)) |
-                       (Tables.knight_attacks(sq_h) & pos.pieces_of({{color}} ^ 1, KNIGHT)) |
-                       (Tables.bishop_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, BISHOP)) |
-                       (Tables.rook_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, ROOK)) |
-                       (Tables.queen_attacks(sq_h, occ) & pos.pieces_of({{color}} ^ 1, QUEEN))
-            if attacked != 0
-              # any friendly piece defends this square?
-              defended = (Tables.pawn_attacks({{color}} ^ 1, sq_h) & pos.pieces_of({{color}}, PAWN)) |
-                         (Tables.knight_attacks(sq_h) & pos.pieces_of({{color}}, KNIGHT)) |
-                         (Tables.bishop_attacks(sq_h, occ) & pos.pieces_of({{color}}, BISHOP)) |
-                         (Tables.rook_attacks(sq_h, occ) & pos.pieces_of({{color}}, ROOK)) |
-                         (Tables.queen_attacks(sq_h, occ) & pos.pieces_of({{color}}, QUEEN)) |
-                         (Tables.king_attacks(sq_h) & pos.pieces_of({{color}}, KING))
-              if defended == 0
-                # hanging: penalize by piece value (small fraction)
-                v = {{pt == KNIGHT ? 320 : pt == BISHOP ? 330 : pt == ROOK ? 500 : 950}}
-                d_mg -= sign_h * (v // 10)
-                d_eg -= sign_h * (v // 10)
-              end
+            if undefended_hang?(pos, sq_h, {{color}})
+              v = {{pt == KNIGHT ? 320 : pt == BISHOP ? 330 : pt == ROOK ? 500 : 950}}
+              d_mg -= sign_h * (v // 10)
+              d_eg -= sign_h * (v // 10)
             end
             pcs_h &= pcs_h - 1
           end
@@ -391,6 +507,41 @@ module Experion
       score = (mg * ph + eg * (24 - ph)) // 24
       # Initiative belongs to the side to move, in either color.
       (pos.stm == WHITE.to_u8! ? score : -score) + TEMPO
+    end
+
+    # True when `sq` has an enemy attacker other than the king and no
+    # defender (king included). King-as-attacker was tried and reverted.
+    @[AlwaysInline]
+    def undefended_hang?(pos : Position, sq : Int32, color : Int32) : Bool
+      occ = pos.occ_all
+      them = color ^ 1
+      atk = pos.attackers_to(sq, occ, them) & ~pos.pieces_of(them, KING)
+      atk != 0 && pos.attackers_to(sq, occ, color) == 0
+    end
+
+    # Hung-piece penalty only. Pure NNUE (blend 100) skips classical eval,
+    # so search otherwise has no explicit "this piece is en prise" term.
+    # Quiet-trained nets under-penalize those positions because game data
+    # rarely contains them. STM-relative, no tempo (NNUE already adds it).
+    # Tropism + king-zone pressure on top scored 35% vs Crafty and was
+    # reverted; hang-only scored 42.5% with the first Black wins.
+    def hang_overlay(pos : Position) : Int32
+      d = 0
+      {% for color in [0, 1] %}
+        sign_h = {{color == 0 ? 1 : -1}}
+        {% for pt in [KNIGHT, BISHOP, ROOK, QUEEN] %}
+          pcs_h = pos.pieces_of({{color}}, {{pt}})
+          while pcs_h != 0
+            sq_h = pcs_h.trailing_zeros_count.to_i!
+            if undefended_hang?(pos, sq_h, {{color}})
+              v = {{pt == KNIGHT ? 320 : pt == BISHOP ? 330 : pt == ROOK ? 500 : 950}}
+              d -= sign_h * (v // 10)
+            end
+            pcs_h &= pcs_h - 1
+          end
+        {% end %}
+      {% end %}
+      pos.stm == WHITE.to_u8! ? d : -d
     end
 
     # No way to force mate: bare kings, or king + single minor vs bare king.

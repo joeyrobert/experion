@@ -34,12 +34,16 @@ case ${3:-tscp} in
   *)         OPP_BIN=$3; OPP_NAME=${3:t}; OPP_ARGS="" ;;
 esac
 
+ENG=${EXPERION_BIN:-$BASE/bin/experion}
+BLEND=${BLEND:-$EXPERION_BLEND}
 $FC \
-  -engine cmd=$BASE/bin/experion name=Experion ${BLEND:+option.EvalBlend=$BLEND} \
+  -engine cmd=$ENG name=Experion ${BLEND:+option.EvalBlend=$BLEND} \
   -engine cmd=$OPP_BIN name=$OPP_NAME ${OPP_ARGS:+args="$OPP_ARGS"} \
-  -each tc="$TC" option.Threads=${THREADS:-4} option.Hash=256 \
+  -each tc="$TC" option.Threads=${THREADS:-4} option.Hash=${HASH:-256} \
   -rounds "$ROUNDS" -games 2 -repeat \
   -openings file=$BASE/tools/match/openings.pgn format=pgn order=random \
   -ratinginterval 10 -concurrency ${CONC:-2} \
   -pgnout file=$BASE/tools/match/games.pgn notation=uci append=true \
-  -output format=cutechess
+  -output format=cutechess \
+  -recover \
+  -maxmoves 300

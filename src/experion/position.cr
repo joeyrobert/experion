@@ -414,6 +414,60 @@ module Experion
       @phase = ph
     end
 
+    # Zobrist key of `self` after `m`, without copying the position. Used to
+    # probe the child's TT slot for move ordering.
+    def hash_after(m : UInt16) : UInt64
+      from = mv_from(m)
+      to = mv_to(m)
+      us = @stm
+      them = (us ^ 1).to_u8!
+      pc = @board.unsafe_fetch(from)
+      is_castle = (pc % 6) == KING && (from - to).abs == 2
+      promo = mv_promo_type(m)
+      is_ep = (pc % 6) == PAWN && ((from ^ to) & 7) != 0 &&
+              @board.unsafe_fetch(to) == NO_PIECE
+      cap_sq = is_ep ? (us == WHITE.to_u8! ? to - 8 : to + 8) : to
+      captured = @board.unsafe_fetch(cap_sq)
+
+      h = @hash
+      if captured != NO_PIECE
+        h ^= Zobrist::PIECE[(captured.to_i << 6) + cap_sq]
+      end
+      h ^= Zobrist::PIECE[(pc.to_i << 6) + from]
+      placed = promo != 0 ? (us * 6 + promo).to_u8! : pc
+      h ^= Zobrist::PIECE[(placed.to_i << 6) + to]
+      if is_castle
+        rfrom = 0
+        rto = 0
+        case to
+        when 6  then rfrom = 7; rto = 5
+        when 2  then rfrom = 0; rto = 3
+        when 62 then rfrom = 63; rto = 61
+        else         rfrom = 56; rto = 59
+        end
+        rook = @board.unsafe_fetch(rfrom)
+        h ^= Zobrist::PIECE[(rook.to_i << 6) + rfrom] ^ Zobrist::PIECE[(rook.to_i << 6) + rto]
+      end
+      old_castling = @castling
+      new_castling = old_castling & CASTLE_MASK.unsafe_fetch(from) & CASTLE_MASK.unsafe_fetch(to)
+      if new_castling != old_castling
+        h ^= Zobrist::CASTLE[old_castling] ^ Zobrist::CASTLE[new_castling]
+      end
+      old_ep = @ep
+      new_ep = NO_SQUARE
+      if (pc % 6) == PAWN && (from - to).abs == 16
+        ep_cand = ((from + to) >> 1).to_u8!
+        unless (Tables.pawn_attacks(us, ep_cand) & @bb.unsafe_fetch(PAWN + 6 * them)).zero?
+          new_ep = ep_cand
+        end
+      end
+      if old_ep != new_ep
+        h ^= Zobrist::EP_FILE[old_ep & 7] unless old_ep == NO_SQUARE
+        h ^= Zobrist::EP_FILE[new_ep & 7] unless new_ep == NO_SQUARE
+      end
+      h ^ Zobrist.side
+    end
+
     # Null move (for search): pass the turn, clear ep.
     def make_null_move(upd_hash : Bool = true) : Nil
       old_ep = @ep

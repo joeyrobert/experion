@@ -180,6 +180,10 @@ module Experion
     # from square to bucket index, not just the bucket count (which is read
     # from the file header and doesn't need to match code on this side).
     @[AlwaysInline]
+    def self.king_buckets : Int32
+      @@king_buckets
+    end
+
     def self.king_bucket(sq : Int) : Int32
       return 0 if @@king_buckets == 1
       (sq.to_i! & 7) < 4 ? 0 : 1
@@ -215,43 +219,55 @@ module Experion
       w1 = @@w1.not_nil!
       dst.copy_from(src, @@acc_row)
       hw = @@h
-      if rm_count >= 1
-        base_w = rmw1 * hw
-        base_b = rmb1 * hw
-        h = 0
+      acc_add(dst, w1, rmw1 * hw, rmb1 * hw, hw, -1) if rm_count >= 1
+      acc_add(dst, w1, rmw2 * hw, rmb2 * hw, hw, -1) if rm_count == 2
+      acc_add(dst, w1, addw1 * hw, addb1 * hw, hw, 1) if add_count >= 1
+      acc_add(dst, w1, addw2 * hw, addb2 * hw, hw, 1) if add_count == 2
+    end
+
+    @[AlwaysInline]
+    private def self.acc_add(dst : Pointer(Int32), w1 : Pointer(Int16),
+                             base_w : Int32, base_b : Int32, hw : Int32, sign : Int32) : Nil
+      # Two contiguous passes so LLVM can NEON-vectorize each accumulator.
+      acc_axpy(dst, w1, base_w, hw, sign)
+      acc_axpy(dst + hw, w1, base_b, hw, sign)
+    end
+
+    @[AlwaysInline]
+    private def self.acc_axpy(dst : Pointer(Int32), w1 : Pointer(Int16),
+                              base : Int32, hw : Int32, sign : Int32) : Nil
+      src = w1 + base
+      h = 0
+      if sign > 0
+        while h + 8 <= hw
+          dst[h] += src[h].to_i32
+          dst[h + 1] += src[h + 1].to_i32
+          dst[h + 2] += src[h + 2].to_i32
+          dst[h + 3] += src[h + 3].to_i32
+          dst[h + 4] += src[h + 4].to_i32
+          dst[h + 5] += src[h + 5].to_i32
+          dst[h + 6] += src[h + 6].to_i32
+          dst[h + 7] += src[h + 7].to_i32
+          h += 8
+        end
         while h < hw
-          dst[h] -= w1[base_w + h]
-          dst[hw + h] -= w1[base_b + h]
+          dst[h] += src[h].to_i32
           h += 1
         end
-      end
-      if rm_count == 2
-        base_w = rmw2 * hw
-        base_b = rmb2 * hw
-        h = 0
-        while h < hw
-          dst[h] -= w1[base_w + h]
-          dst[hw + h] -= w1[base_b + h]
-          h += 1
+      else
+        while h + 8 <= hw
+          dst[h] -= src[h].to_i32
+          dst[h + 1] -= src[h + 1].to_i32
+          dst[h + 2] -= src[h + 2].to_i32
+          dst[h + 3] -= src[h + 3].to_i32
+          dst[h + 4] -= src[h + 4].to_i32
+          dst[h + 5] -= src[h + 5].to_i32
+          dst[h + 6] -= src[h + 6].to_i32
+          dst[h + 7] -= src[h + 7].to_i32
+          h += 8
         end
-      end
-      if add_count >= 1
-        base_w = addw1 * hw
-        base_b = addb1 * hw
-        h = 0
         while h < hw
-          dst[h] += w1[base_w + h]
-          dst[hw + h] += w1[base_b + h]
-          h += 1
-        end
-      end
-      if add_count == 2
-        base_w = addw2 * hw
-        base_b = addb2 * hw
-        h = 0
-        while h < hw
-          dst[h] += w1[base_w + h]
-          dst[hw + h] += w1[base_b + h]
+          dst[h] -= src[h].to_i32
           h += 1
         end
       end
@@ -357,6 +373,29 @@ module Experion
       mg = 0i64
       eg = 0i64
       i = 0
+      while i + 4 <= width
+        w0 = (row[i] + bias[i]).clamp(0, 255)
+        b0 = (row[@@h + i] + bias[i]).clamp(0, 255)
+        d0 = (w0 - b0).to_i64
+        mg += d0 * output[i]
+        eg += d0 * output[width + i]
+        w1 = (row[i + 1] + bias[i + 1]).clamp(0, 255)
+        b1 = (row[@@h + i + 1] + bias[i + 1]).clamp(0, 255)
+        d1 = (w1 - b1).to_i64
+        mg += d1 * output[i + 1]
+        eg += d1 * output[width + i + 1]
+        w2 = (row[i + 2] + bias[i + 2]).clamp(0, 255)
+        b2 = (row[@@h + i + 2] + bias[i + 2]).clamp(0, 255)
+        d2 = (w2 - b2).to_i64
+        mg += d2 * output[i + 2]
+        eg += d2 * output[width + i + 2]
+        w3 = (row[i + 3] + bias[i + 3]).clamp(0, 255)
+        b3 = (row[@@h + i + 3] + bias[i + 3]).clamp(0, 255)
+        d3 = (w3 - b3).to_i64
+        mg += d3 * output[i + 3]
+        eg += d3 * output[width + i + 3]
+        i += 4
+      end
       while i < width
         w = (row[i] + bias[i]).clamp(0, 255)
         b = (row[@@h + i] + bias[i]).clamp(0, 255)

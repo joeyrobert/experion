@@ -228,7 +228,7 @@ module Experion
           alloc = if clocks.movestogo > 0
                     my_time // (clocks.movestogo + 1)
                   else
-                    my_time // 20 + my_inc * 3 // 4
+                    my_time // 12 + my_inc * 3 // 4
                   end
           alloc = alloc.clamp(10i64, my_time * 3 // 4)
           limits.soft_ms = alloc

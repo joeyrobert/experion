@@ -2,7 +2,6 @@
 # Library entry: requires all engine modules. CLI lives in experion_cli.cr.
 
 require "./experion/magic_constants"
-require "./experion/magic_constants"
 require "./experion/types"
 require "./experion/tables"
 require "./experion/move"

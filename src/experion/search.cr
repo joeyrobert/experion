@@ -79,6 +79,7 @@ module Experion
     @counters : StaticArray(UInt16, COUNTER_N)
     @conthist : Pointer(Int32)
     @history : StaticArray(Int32, HIST_N)
+    @cap_hist : StaticArray(Int32, HIST_N)
     @moves : Pointer(MoveEntry)
     @scratch : Pointer(UInt16)
     @hashes : Pointer(UInt64)
@@ -90,16 +91,24 @@ module Experion
     @root_pos : Position
     @accs : Pointer(Int32)
     @sevals : Pointer(Int32)
-    @eval_cache : Pointer(UInt64) = Pointer(UInt64).malloc(2 * 262144)
+    # 3 words/entry: hash, packed white-POV base, hang-overlay (or UNKNOWN).
+    # Overlay is STM-relative and position-only, so tree and qsearch share
+    # the base and the overlay is filled on first blend-100 request.
+    EVAL_CACHE_N = 262144
+    EVAL_OVERLAY_UNKNOWN = 0x7FFF_FFFFu64
+    @eval_cache : Pointer(UInt64) = Pointer(UInt64).malloc(3 * EVAL_CACHE_N)
     @eval_cache_mask : UInt64 = 262143u64
+    @tt_owner : Bool
+    @helpers : Array(Searcher)
 
     def initialize(@tt : TT = TT.new, shared_stop : SearchStop? = nil,
-                   worker_bias : Int32 = 0)
+                   worker_bias : Int32 = 0, @tt_owner : Bool = true)
       @stop = shared_stop || SearchStop.new
       @killers = StaticArray(UInt16, KILLER_N).new(0u16)
       @counters = StaticArray(UInt16, COUNTER_N).new(0u16)
       @conthist = Pointer(Int32).malloc(CONTHIST_N)
       @history = StaticArray(Int32, HIST_N).new(0)
+      @cap_hist = StaticArray(Int32, HIST_N).new(0)
       @moves = Pointer(MoveEntry).malloc(MAX_MOVES * MAX_PLY)
       @scratch = Pointer(UInt16).malloc(MAX_MOVES)
       @hashes = Pointer(UInt64).malloc(HASH_SIZE)
@@ -112,6 +121,7 @@ module Experion
       @root_pos = Position.startpos
       @verbose = true
       @raw_output = false
+      @helpers = Array(Searcher).new
 
       @lmr = StaticArray(Int32, LMR_N).new(0)
       d = 1
@@ -135,11 +145,28 @@ module Experion
     end
 
     def new_game : Nil
-      @tt.new_game
-      @eval_cache.clear(2 * 262144)
+      @tt.new_game if @tt_owner
+      @eval_cache.clear(3 * EVAL_CACHE_N)
       @killers.fill(0u16)
       @counters.fill(0u16)
       @history.fill(0)
+      @cap_hist.fill(0)
+      i = 0
+      while i < CONTHIST_N
+        @conthist[i] = 0
+        i += 1
+      end
+      @helpers.each do |h|
+        h.clear_heuristics
+      end
+    end
+
+    def clear_heuristics : Nil
+      @eval_cache.clear(3 * EVAL_CACHE_N)
+      @killers.fill(0u16)
+      @counters.fill(0u16)
+      @history.fill(0)
+      @cap_hist.fill(0)
       i = 0
       while i < CONTHIST_N
         @conthist[i] = 0
@@ -172,21 +199,43 @@ module Experion
 
       from = mv_from(m)
       to = mv_to(m)
+      pc = pos.piece_at(from).to_i
 
-      # King buckets make EVERY feature of the moving side's perspective
-      # depend on that king's square (not just the king's own feature), so
-      # any king move (not just castling) invalidates incremental delta
-      # updates for that perspective. Full-rebuild both halves rather than
-      # tracking which single perspective needs it: king moves are rare
-      # enough in the tree that the simplicity is worth the extra half-row
-      # of work, and it keeps this path far easier to reason about.
-      if pos.piece_at(from).to_i % 6 == KING
+      # King-bucketed ENN3 features depend on the moving side's king square
+      # for every piece, so a king move invalidates incremental updates.
+      # ENN4 (and any 1-bucket net) only needs the king's own feature moved,
+      # including castling's rook.
+      if pc % 6 == KING && Nnue.king_buckets > 1
         Nnue.refresh(@accs + child_ply * Nnue.acc_row, child)
         return
       end
 
-      pc = pos.piece_at(from).to_i
       us = pos.stm.to_i
+      wbucket = Nnue.king_bucket(pos.king_sq(WHITE))
+      bbucket = Nnue.king_bucket(pos.king_sq(BLACK))
+
+      if pc % 6 == KING && (from - to).abs == 2
+        rfrom, rto = case to
+        when 6  then {7, 5}
+        when 2  then {0, 3}
+        when 62 then {63, 61}
+        else         {56, 59}
+        end
+        rook = pos.piece_at(rfrom).to_i
+        Nnue.apply_delta(@accs + child_ply * Nnue.acc_row,
+          @accs + parent_ply * Nnue.acc_row,
+          Nnue.feature_index(pc, from, 0, wbucket),
+          Nnue.feature_index(pc, from, 1, bbucket),
+          Nnue.feature_index(rook, rfrom, 0, wbucket),
+          Nnue.feature_index(rook, rfrom, 1, bbucket),
+          Nnue.feature_index(pc, to, 0, wbucket),
+          Nnue.feature_index(pc, to, 1, bbucket),
+          Nnue.feature_index(rook, rto, 0, wbucket),
+          Nnue.feature_index(rook, rto, 1, bbucket),
+          2, 2)
+        return
+      end
+
       is_ep = pc % 6 == PAWN && ((from ^ to) & 7) != 0 &&
               pos.piece_at(to) == NO_PIECE
       cap_sq = is_ep ? (us == WHITE ? to - 8 : to + 8) : to
@@ -194,11 +243,6 @@ module Experion
 
       promo = mv_promo_type(m)
       placed = promo.zero? ? pc : (us * 6 + promo)
-
-      # Neither king moves on this path, so both perspectives' king buckets
-      # are stable across the move and can be read once from `pos`.
-      wbucket = Nnue.king_bucket(pos.king_sq(WHITE))
-      bbucket = Nnue.king_bucket(pos.king_sq(BLACK))
 
       rmw1 = Nnue.feature_index(pc, from, 0, wbucket)
       rmb1 = Nnue.feature_index(pc, from, 1, bbucket)
@@ -225,17 +269,31 @@ module Experion
         @accs + parent_ply * Nnue.acc_row, Nnue.acc_row)
     end
 
-    private def evaluate_search(pos : Position, ply : Int32) : Int32
+    private def cached_hang_overlay(pos : Position, idx : Int32) : Int32
+      packed = @eval_cache[idx * 3 + 2]
+      if packed == EVAL_OVERLAY_UNKNOWN
+        ov = Eval.hang_overlay(pos)
+        @eval_cache[idx * 3 + 2] = ov.to_i64!.to_u64!
+        return ov
+      end
+      packed.to_i64!.to_i32!
+    end
+
+    private def evaluate_search(pos : Position, ply : Int32, overlay : Bool = true) : Int32
       h = pos.hash
 
-      # eval cache: skip everything when position already evaluated
+      # eval cache: skip everything when position already evaluated.
+      # Cached value is the base (NNUE/classical) without hang overlay so
+      # qsearch and the main tree can share it. Overlay is filled once.
       idx = (h & @eval_cache_mask).to_i32!
-      cached_hash = @eval_cache[idx * 2]
+      cached_hash = @eval_cache[idx * 3]
       if cached_hash == h
-        raw = @eval_cache[idx * 2 + 1]
+        raw = @eval_cache[idx * 3 + 1]
         v = (raw >> 1).to_i32!
         v = -v if (raw & 1) == 1
-        return pos.stm == WHITE.to_u8! ? v : -v
+        v = pos.stm == WHITE.to_u8! ? v : -v
+        v += cached_hang_overlay(pos, idx) if overlay && Nnue.enabled? && Nnue.blend == 100
+        return v
       end
 
       # blend classical and NNUE eval when NNUE is enabled
@@ -250,11 +308,13 @@ module Experion
         v = v_class
       end
 
-      # store white-POV value + sign bit
+      # store white-POV base value + sign bit (no overlay)
       wv = pos.stm == WHITE.to_u8! ? v : -v
-      @eval_cache[idx * 2] = h
-      @eval_cache[idx * 2 + 1] = wv.abs.to_u64! << 1 | (wv < 0 ? 1u64 : 0u64)
+      @eval_cache[idx * 3] = h
+      @eval_cache[idx * 3 + 1] = wv.abs.to_u64! << 1 | (wv < 0 ? 1u64 : 0u64)
+      @eval_cache[idx * 3 + 2] = EVAL_OVERLAY_UNKNOWN
 
+      v += cached_hang_overlay(pos, idx) if overlay && Nnue.enabled? && Nnue.blend == 100
       v
     end
 
@@ -267,6 +327,7 @@ module Experion
         v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!)
         blend = Nnue.blend
         v = (v_class * (100 - blend) + v_nnue * blend) // 100
+        v += Eval.hang_overlay(pos) if blend == 100
       else
         v = v_class
       end
@@ -294,7 +355,9 @@ module Experion
     def think_smp(root : Position, game_hashes : Array(UInt64), limits : Limits,
                   threads : Int32, reset_stop : Bool = true) : UInt16
       prepare_search if reset_stop
-      # SMP startup/join overhead dominates tiny budgets; scale down
+      # Reuse helper Searchers so SMP startup is not a per-move allocation.
+      # Scale down on tiny budgets but keep 2 threads — dropping to 1 lost
+      # ~14% vs Sungorus at 2+0.02 after worker reuse already made spawn cheap.
       eff = threads
       if !limits.soft_ms.zero? && limits.soft_ms < 150 && eff > 2
         eff = 2
@@ -302,26 +365,26 @@ module Experion
       return think(root, game_hashes, limits, false) if eff <= 1
 
       shared_stop = @stop
-      results = StaticArray(UInt16, 16).new(Moves::MOVE_NONE)
-      done = Atomic(Int32).new(0)
+      while @helpers.size < eff - 1
+        w = Searcher.new(@tt, shared_stop, @helpers.size % 2 == 0 ? 1 : 0, false)
+        w.verbose = false
+        w.raw_output = true
+        @helpers << w
+      end
 
+      results = StaticArray(UInt16, 16).new(Moves::MOVE_NONE)
       workers = Array(Thread).new(eff - 1)
       (1...eff).each do |i|
+        helper = @helpers[i - 1]
         workers << Thread.new do
-          w = Searcher.new(@tt, shared_stop, i % 2 == 1 ? 1 : 0)
-          w.verbose = false
-          mv = w.think(root, game_hashes, limits, false)
-          results[i] = mv
-          done.add(1)
+          results[i] = helper.think(root, game_hashes, limits, false)
         end
       end
 
-      # primary: this searcher, printing info as usual
       best = think(root, game_hashes, limits, false)
-      results[0] = best
       shared_stop.set(true)
       workers.each(&.join)
-      results.find { |m| m != Moves::MOVE_NONE } || Moves::MOVE_NONE
+      best != Moves::MOVE_NONE ? best : (results.find { |m| m != Moves::MOVE_NONE } || Moves::MOVE_NONE)
     end
 
     # --- public entry -------------------------------------------------------------
@@ -339,6 +402,7 @@ module Experion
       hi = 0
       while hi < HIST_N
         @history[hi] >>= 1
+        @cap_hist[hi] >>= 1
         hi += 1
       end
 
@@ -353,9 +417,10 @@ module Experion
       pos = root
       @hashes[@base_ply] = pos.hash
       Nnue.refresh(@accs, pos) if Nnue.enabled?
-      @sevals[0] = Eval.evaluate(pos)
+      @sevals[0] = evaluate_search(pos, 0)
       @sevals[1] = @sevals[0]
       @last_score = 0
+      @tt.bump_age if @tt_owner
 
       # root move list: order by simple MVV-LVA + center bias so the first
       # iteration's "best move" is more likely to actually be best
@@ -430,15 +495,15 @@ module Experion
         last_completed = depth
         best_move = @moves[0].move
         prev_score = best_score
-        print_info(depth, best_score)
-        @tt.bump_age
+        print_info(depth, best_score, @moves[0].move)
 
         break if best_score.abs > Eval::MATE_IN_MAX
 
         unless limits.infinite
           # spend most of the budget on the current iteration; start a new one
-          # only if comfortably inside the soft window
-          break if !limits.soft_ms.zero? && elapsed_ms * 4 >= limits.soft_ms * 3
+          # only if comfortably inside the soft window (80% of soft).
+          # 90% scored 37.5% vs Crafty vs 45% at 80% + my_time//12.
+          break if !limits.soft_ms.zero? && elapsed_ms * 5 >= limits.soft_ms * 4
         end
 
         depth += 1
@@ -447,8 +512,16 @@ module Experion
       if best_move == Moves::MOVE_NONE && root_count > 0
         best_move = @moves[0].move
       end
+      best_move, best_score = reject_hanging_root(pos, root_count, best_move, best_score, last_completed)
       @last_score = best_score
       @last_completed_depth = last_completed
+      # One final info line whose PV starts with the move we actually play.
+      # Aborted iterations and the hanging veto otherwise leave fastchess
+      # warning "Bestmove does not match beginning of last PV" and dumping
+      # the whole game into the match log.
+      if best_move != Moves::MOVE_NONE && last_completed > 0
+        print_info(last_completed, best_score, best_move)
+      end
       best_move
     end
 
@@ -502,6 +575,11 @@ module Experion
         i += 1
       end
 
+      # Do not reorder or store TT from an aborted iteration: a partial
+      # move list sorted by incomplete scores would replace the previous
+      # iteration's PV and desync bestmove from the last info line.
+      return best if @stop.get
+
       # stable sort SEARCHED moves by score desc; unsearched moves (default
       # score 0) keep their original generator order. We only sort up to
       # `legal` (count of moves actually searched), so unsearched tail moves
@@ -533,6 +611,50 @@ module Experion
         @tt.store(pos.hash, @moves[0].move, @tt.score_to_tt(best, 0), depth, flags)
       end
       best
+    end
+
+    # Sungorus takes hanging pieces we just put down, at the same search
+    # depth. Tree-wide SEE prune of those quiets also dropped developing
+    # moves and lost Elo. Only veto the move we would actually play, and
+    # only if an alternative is within 250cp. Mate scores are left alone
+    # so a hanging check or desperado is not replaced with a faster mate.
+    private def reject_hanging_root(pos : Position, count : Int32, best : UInt16,
+                                    score : Int32, depth : Int32) : {UInt16, Int32}
+      return {best, score} if count < 2 || best == Moves::MOVE_NONE
+      return {best, score} if score.abs > Eval::MATE_IN_MAX
+      return {best, score} unless hanging_quiet?(pos, best)
+      i = 1
+      while i < count
+        alt = @moves[i].move
+        unless hanging_quiet?(pos, alt)
+          alt_score = @moves[i].score
+          if score - alt_score < 250
+            e = @moves[i]
+            j = i
+            while j > 0
+              @moves[j] = @moves[j - 1]
+              j -= 1
+            end
+            @moves[0] = e
+            unless @stop.get
+              d = depth > 0 ? depth : 1
+              @tt.store(pos.hash, alt, @tt.score_to_tt(alt_score, 0), d, TT::FLAG_EXACT)
+            end
+            return {alt, alt_score}
+          end
+          return {best, score}
+        end
+        i += 1
+      end
+      {best, score}
+    end
+
+    private def hanging_quiet?(pos : Position, m : UInt16) : Bool
+      return false unless quiet_move?(pos, m)
+      child = pos
+      child.make_move(m)
+      return false if child.in_check?
+      See.see(pos, m) < -150
     end
 
     # --- main search ---------------------------------------------------------------
@@ -567,7 +689,7 @@ module Experion
 
 
       if depth <= 0
-        return qsearch(pos, a, b, ply, limits, !in_check)
+        return qsearch(pos, a, b, ply, limits, 1)
       end
 
       # TT probe
@@ -589,16 +711,11 @@ module Experion
       singular_ext = 0
       if tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && tt_depth >= depth - 3 && !in_check &&
          tt_score.abs < Eval::MATE_IN_MAX && (tt_flags == TT::FLAG_EXACT || tt_flags == TT::FLAG_LOWER)
-        # do a reduced-depth search excluding the TT move; if no alternative
-        # can match the TT score minus a margin, the move is singular
         verify_beta = tt_score - 2 * depth
         if verify_beta > -Eval::MATE_IN_MAX && verify_beta < b
-          # search all moves except tt_move at reduced depth with verify_beta
           singular = singular_check(pos, ply, tt_move, (depth - 1) // 2, verify_beta, limits, prev_m)
           if singular
             singular_ext = 1
-            # double extension: if the original TT depth is much higher than
-            # ours, we trust the TT more, allow a second extension
             singular_ext = 2 if tt_depth >= depth + 3
           end
         end
@@ -614,6 +731,13 @@ module Experion
       # "improving": our static eval is better than it was two plies ago
       improving = ply >= 2 && @sevals[ply] > @sevals[ply - 2]
 
+      # razoring: if even a padded eval cannot raise alpha, verify with qsearch
+      if !in_check && depth <= 2 && ply > 0 && static_eval + 200 * depth <= a &&
+         a.abs < Eval::MATE_IN_MAX
+        razor = qsearch(pos, a, a + 1, ply, limits, 0)
+        return razor if razor <= a
+      end
+
       # reverse futility pruning: tighter margin when not improving
       if !in_check && depth <= 4 && static_eval - (improving ? 60 : 80) * depth >= b &&
          b.abs < Eval::MATE_IN_MAX
@@ -623,6 +747,7 @@ module Experion
       # null move pruning (need non-pawn material to avoid zugzwang blindness)
       non_pawn = pos.occ_of(us) & ~(pos.pieces_of(us, PAWN) | pos.pieces_of(us, KING))
       if can_null && !in_check && depth >= 3 && static_eval >= b &&
+         (improving || static_eval >= b + 60) &&
          non_pawn != 0 && b.abs < Eval::MATE_IN_MAX
         np = pos
         copy_acc(ply, ply + 1)
@@ -665,12 +790,10 @@ module Experion
             prune_futility = true if depth <= 2 &&
                                     static_eval + FUTILITY[depth] <= a
           else
-            # SEE-based capture pruning: skip clearly-losing captures
-            # (and quiet captures via SEE up to depth 6)
+            # SEE-based capture pruning: skip clearly-losing captures.
+            # Depth 5–6 SEE < −300 was dropped (40% vs Crafty, not worse).
             see_val = See.see(pos, m)
             prune_futility = true if depth <= 4 && see_val < -(80 * depth)
-            # at higher depths, prune only very negative captures
-            prune_futility = true if depth <= 6 && see_val < -300
           end
         end
 
@@ -679,13 +802,13 @@ module Experion
         prune_lmp = false
         if !in_check && !gives_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
           lmp_margin = if depth == 1
-                        4
+                        5
                       elsif depth == 2
-                        6
+                        8
                       elsif depth == 3
-                        10
+                        13
                       else
-                        14
+                        18
                       end
           lmp_margin += 2 if improving
           prune_lmp = true if legal > lmp_margin
@@ -707,6 +830,7 @@ module Experion
               r = @lmr[depth.clamp(0, 63) * 64 + legal.clamp(0, 63)]
               h = @history[pc * 64 + mv_to(m)]
               r -= 1 if pc % 6 != PAWN && h > 4000
+              r -= 1 if improving
               r += 1 if legal > 6 && h < 80
               r = depth - 2 if r > depth - 2
               r = 0 if r < 0
@@ -735,14 +859,14 @@ module Experion
                     v = @conthist[chi] + depth * depth
                     @conthist[chi] = v > 8_000_000 ? 8_000_000 : v
                   end
+                else
+                  bump_cap_history(pc, mv_to(m), depth)
                 end
                 break
               end
             end
           end
         else
-          # searched quiet that didn't cut: penalize so it sinks in the
-          # ordering on this and future searches
           if quiet
             bump_history_down(pc, mv_to(m), depth)
             if prev_m != Moves::MOVE_NONE
@@ -776,7 +900,7 @@ module Experion
     # --- quiescence ------------------------------------------------------------------
 
     private def qsearch(pos : Position, alpha : Int32, beta : Int32, ply : Int32,
-                        limits : Limits, gen_checks : Bool = false) : Int32
+                        limits : Limits, check_plies : Int32 = 0) : Int32
       @nodes += 1
       @seldepth = ply if ply > @seldepth
       check_stop(limits)
@@ -786,7 +910,7 @@ module Experion
       in_check = pos.in_check?
 
       if ply >= MAX_PLY - 2
-        return evaluate_search(pos, ply)
+        return evaluate_search(pos, ply, false)
       end
 
       # qsearch TT probe
@@ -831,7 +955,9 @@ module Experion
           push_acc(pos, m, ply, ply + 1, child)
           @hashes[@base_ply + ply + 1] = child.hash
           legal += 1
-          score = -qsearch(child, -beta, -alpha, ply + 1, limits)
+          # only the first qsearch ply generates quiet checks — deeper plies
+          # exploded the tree so badly that depth 1 could not finish at 2+0.02
+          score = -qsearch(child, -beta, -alpha, ply + 1, limits, 0)
           if score > best
             best = score
             if score > alpha
@@ -844,7 +970,7 @@ module Experion
         return legal.zero? ? -Eval::MATE + ply : best
       end
 
-      stand = evaluate_search(pos, ply)
+      stand = evaluate_search(pos, ply, false)
       return stand if stand >= beta
       a = stand > alpha ? stand : alpha
       alpha0 = alpha
@@ -857,18 +983,19 @@ module Experion
         if pt == QUEEN
           sc = QUEEN_PROMO
         else
-          # SEE drives both ordering and pruning here
+          # SEE drives both ordering and pruning here. Store CAP_BASE+see so
+          # the search loop does not recompute SEE.
           v = See.see(pos, m)
-          sc = v > 0 ? CAP_BASE + v : CAP_BASE // 2 + v
+          sc = CAP_BASE + v
           sc += 400_000 if pt != 0
         end
         buf[i] = MoveEntry.new(m, sc)
         i += 1
       end
 
-      # first quiescence ply also considers checking moves
+      # remaining check_plies of quiet checks (king hunts, hanging-piece mates)
       check_count = count
-      if gen_checks && ply < 40
+      if check_plies > 0 && ply < 40
         all_count = pos.generate(@scratch)
         j = 0
         while j < all_count
@@ -887,13 +1014,14 @@ module Experion
       i = 0
       while i < check_count
         m = pick_best_q(buf, check_count, i)
+        sc = buf[i].score
         i += 1
 
         prune = false
         unless mv_promo_type(m) != 0 && pos.piece_at(mv_to(m)) == NO_PIECE
-          # captures were already SEE-scored: negative score => losing capture
+          # captures were already SEE-scored: sc < CAP_BASE => SEE ≤ −1
           if pos.piece_at(mv_to(m)) != NO_PIECE && mv_promo_type(m) != QUEEN
-            prune = true if See.see(pos, m) < 0
+            prune = true if sc < CAP_BASE
             unless prune
               victim = VICTIM[pos.piece_at(mv_to(m)).to_i % 6]
               prune = true if stand + victim + 220 <= alpha # delta pruning
@@ -907,7 +1035,7 @@ module Experion
           push_acc(pos, m, ply, ply + 1, child)
           @hashes[@base_ply + ply + 1] = child.hash
 
-          score = -qsearch(child, -beta, -a, ply + 1, limits)
+          score = -qsearch(child, -beta, -a, ply + 1, limits, 0)
           if score > best
             best = score
             best_move = m
@@ -969,7 +1097,10 @@ module Experion
           pt = mv_promo_type(m)
           victim = pos.piece_at(mv_to(m))
           if victim != NO_PIECE
-            sc = CAP_BASE + VICTIM[victim.to_i % 6] * 16 - VICTIM[pos.piece_at(mv_from(m)).to_i % 6]
+            ch = @cap_hist[pos.piece_at(mv_from(m)).to_i * 64 + mv_to(m)]
+            ch = ch.clamp(-80_000, 80_000)
+            sc = CAP_BASE + VICTIM[victim.to_i % 6] * 16 -
+                 VICTIM[pos.piece_at(mv_from(m)).to_i % 6] + ch
             sc += QUEEN_PROMO - CAP_BASE if pt == QUEEN
           elsif pt == QUEEN
             sc = QUEEN_PROMO
@@ -988,6 +1119,9 @@ module Experion
               h += ch
             end
             h = h * 4 if h > 0 # amplify positive history relative to killers
+            # Keep fail-low history for LMR (raw @history is still negative)
+            # but do not sort those quiets last: that 0-4'd vs Sungorus by
+            # LMP-pruning developing moves that had failed in other lines.
             h = 0 if h < 0
             sc = h < 5_000_000 ? h : 5_000_000
           end
@@ -1084,6 +1218,12 @@ module Experion
       @history[idx] = v < -8_000_000 ? -8_000_000 : v
     end
 
+    private def bump_cap_history(pc : Int, to : Int, depth : Int32) : Nil
+      idx = pc * 64 + to
+      v = @cap_hist[idx] + depth * depth
+      @cap_hist[idx] = v > 8_000_000 ? 8_000_000 : v
+    end
+
     private def repetition?(pos : Position, ply : Int32) : Bool
       cur = @base_ply + ply
       lo = cur - pos.halfmove.to_i
@@ -1096,11 +1236,11 @@ module Experion
       false
     end
 
-    private def print_info(depth : Int32, score : Int32) : Nil
+    private def print_info(depth : Int32, score : Int32, first : UInt16 = Moves::MOVE_NONE) : Nil
       return unless @verbose
       ms = elapsed_ms
       nps = ms > 0 ? @nodes * 1000 // ms : @nodes
-      pv = pv_string
+      pv = pv_string(first)
       score_str = if score.abs > Eval::MATE_IN_MAX
                     plies = Eval::MATE - score.abs
                     moves = (plies + 1) // 2
@@ -1117,11 +1257,30 @@ module Experion
       end
     end
 
-    def pv_string : String
+    def pv_string(first : UInt16 = Moves::MOVE_NONE) : String
       parts = Array(String).new
       pos = @root_pos
       seen = Set(UInt64).new
       seen << pos.hash
+      if first != Moves::MOVE_NONE
+        n0 = pos.generate(@scratch)
+        ok = false
+        i0 = 0
+        while i0 < n0
+          if @scratch[i0] == first
+            ok = true
+            break
+          end
+          i0 += 1
+        end
+        if ok
+          parts << Moves.mv_uci(first)
+          child = pos
+          child.make_move(first, false)
+          seen << child.hash
+          pos = child
+        end
+      end
       while parts.size < 24
         hit, m, s, d, f = @tt.probe(pos.hash)
         break if !hit || m == Moves::MOVE_NONE
@@ -1175,10 +1334,14 @@ module Experion
       to = mv_to(m)
 
       target = pos.piece_at(to)
+      is_ep = target == NO_PIECE && pos.piece_at(from).to_i % 6 == PAWN &&
+              pos.ep != NO_SQUARE && to == pos.ep.to_i
       value = if target != NO_PIECE
                 VAL[target.to_i % 6]
+              elsif is_ep
+                100
               else
-                100 # en passant
+                0 # quiet: opponent may recapture the piece that just moved
               end
 
       attacker_pc = pos.piece_at(from).to_i
@@ -1187,8 +1350,8 @@ module Experion
 
       occ = pos.occ_all
       occ &= ~(1u64 << from)
-      if target == NO_PIECE && pos.piece_at(from).to_i % 6 == PAWN
-        # en passant: captured pawn is behind the target square
+      if is_ep
+        # captured pawn is behind the target square
         cap_sq = pos.stm == WHITE.to_u8! ? to - 8 : to + 8
         occ &= ~(1u64 << cap_sq)
       end

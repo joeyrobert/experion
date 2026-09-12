@@ -34,8 +34,10 @@ describe Experion::Nnue do
       Experion::Nnue.load(file.path).should be_true
       Experion::Nnue.set_option(true)
       s = Experion::Searcher.new(Experion::TT.new(10))
-      s.eval_for(Experion::Position.new("4k3/8/8/8/8/8/R7/4K3 w - - 0 1")).should eq(512)
-      s.eval_for(Experion::Position.new("4k3/8/8/8/8/8/r7/4K3 w - - 0 1")).should eq(-488)
+      white_rook = Experion::Position.new("4k3/8/8/8/8/8/R7/4K3 w - - 0 1")
+      black_rook = Experion::Position.new("4k3/8/8/8/8/8/r7/4K3 w - - 0 1")
+      s.eval_for(white_rook).should eq(512 + Experion::Eval.hang_overlay(white_rook))
+      s.eval_for(black_rook).should eq(-488 + Experion::Eval.hang_overlay(black_rook))
       [Experion::Position.startpos.to_fen,
        "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
        "4k3/P7/8/3pP3/8/8/7p/4K3 w - d6 0 1",

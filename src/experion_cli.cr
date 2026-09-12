@@ -73,6 +73,12 @@ module Experion
       path = args[2]? || "training_classical.txt"
       thr = args[3]?.try(&.to_i?) || 8
       GenData.run_classical(n, path, thr)
+    when "gendata-selfplay"
+      games = args[1]?.try(&.to_i?) || 2000
+      depth = args[2]?.try(&.to_i?) || 8
+      path = args[3]? || "training_selfplay.txt"
+      thr = args[4]?.try(&.to_i?) || 8
+      GenData.run_selfplay(games, depth, path, thr)
     when "genfics-data"
       in_path = args[1]? || raise "missing input pgn path"
       out_path = args[2]? || "training_fics.txt"
