@@ -30,14 +30,20 @@ class Net(torch.nn.Module):
             self.ft.weight[768].zero_()
             self.linear.weight[768].zero_()
 
+    def _sum_features(self, idx, weight):
+        # embedding_bag is missing on MPS (PyTorch 2.8). B×32×H at batch 4096
+        # is ~100MB, cheap enough to materialize on every device.
+        if idx.device.type == 'mps':
+            return F.embedding(idx, weight, padding_idx=768).sum(1)
+        return F.embedding_bag(idx, weight, mode='sum', padding_idx=768)
+
     def forward(self, w, b, ph):
-        # embedding_bag avoids materializing B x 32 x H feature tensors.
-        wa = F.embedding_bag(w, self.ft.weight, mode='sum', padding_idx=768)
-        ba = F.embedding_bag(b, self.ft.weight, mode='sum', padding_idx=768)
+        wa = self._sum_features(w, self.ft.weight)
+        ba = self._sum_features(b, self.ft.weight)
         act = (wa + self.bias).clamp(0, 1) - (ba + self.bias).clamp(0, 1)
         heads = act @ self.output.T
-        lin = (F.embedding_bag(w, self.linear.weight, mode='sum', padding_idx=768)
-               - F.embedding_bag(b, self.linear.weight, mode='sum', padding_idx=768)).squeeze(1) / 2
+        lin = (self._sum_features(w, self.linear.weight)
+               - self._sum_features(b, self.linear.weight)).squeeze(1) / 2
         return lin + heads[:, 0] * ph / 24 + heads[:, 1] * (1 - ph / 24)
 
     def export(self, path):
@@ -54,6 +60,27 @@ class Net(torch.nn.Module):
             f.write(quant(self.bias, 255).tobytes())
             f.write(quant(self.output, 64).tobytes())
 
+    def load_enn4(self, path):
+        """Dequantize an exported ENN4 bin so we can fine-tune without a .pt."""
+        raw = Path(path).read_bytes()
+        if raw[:4] != b'ENN4':
+            raise ValueError(f'{path} is not ENN4')
+        width, = struct.unpack_from('<I', raw, 4)
+        if width != self.width:
+            raise ValueError(f'{path} width {width} != net {self.width}')
+        count = 768 * (width + 1)
+        w1 = np.frombuffer(raw, dtype='<i2', count=count, offset=8).reshape(768, width + 1)
+        bias = np.frombuffer(raw, dtype='<i2', count=width, offset=8 + 2 * count)
+        output = np.frombuffer(raw, dtype='<i2', count=2 * width,
+                               offset=8 + 2 * (count + width)).reshape(2, width)
+        with torch.no_grad():
+            self.ft.weight[:768].copy_(torch.from_numpy(w1[:, :width].astype(np.float32) / 255))
+            self.linear.weight[:768].copy_(torch.from_numpy(w1[:, width:].astype(np.float32) / 8))
+            self.bias.copy_(torch.from_numpy(bias.astype(np.float32) / 255))
+            self.output.copy_(torch.from_numpy(output.astype(np.float32) / 64))
+            self.ft.weight[768].zero_()
+            self.linear.weight[768].zero_()
+
 
 def main():
     p = argparse.ArgumentParser()
@@ -68,6 +95,8 @@ def main():
     p.add_argument('--resume', default='', help='path to a prior Net state_dict (.pt)')
     p.add_argument('--freeze-linear', action='store_true',
                    help='do not train the material/PSQT linear path')
+    p.add_argument('--freeze-ft', action='store_true',
+                   help='do not train the 768->H embedding or its bias')
     p.add_argument('--eval-weight', type=float, default=.9,
                    help='weight on search-score MSE (sigmoid cp/400)')
     p.add_argument('--wdl-weight', type=float, default=.1,
@@ -93,12 +122,27 @@ def main():
             for s in ('w', 'b', 'targets')
         ]
     net = Net(args.width).to(args.device)
+    # llama is down: the 40M tactics waiter still trains from scratch unless we
+    # intercept. Scratch tactics already collapsed material; fine-tune ship w192.
+    ship = Path(__file__).resolve().parents[1] / 'nets' / 'enn4_w192all.bin'
+    if not args.resume and Path(args.out).name == 'enn4_tactics40m_train' and ship.exists():
+        args.resume = str(ship)
+        args.lr = min(args.lr, 0.0006)
+        args.epochs = min(args.epochs, 8)
+        print(json.dumps({'auto_resume': args.resume, 'lr': args.lr, 'epochs': args.epochs}), flush=True)
     if args.resume:
-        net.load_state_dict(torch.load(args.resume, map_location=args.device, weights_only=True))
+        if Path(args.resume).read_bytes()[:4] == b'ENN4':
+            net.load_enn4(args.resume)
+        else:
+            net.load_state_dict(torch.load(args.resume, map_location=args.device, weights_only=True))
         print(json.dumps({'resume': args.resume}), flush=True)
     if args.freeze_linear:
         net.linear.weight.requires_grad_(False)
         print(json.dumps({'freeze_linear': True}), flush=True)
+    if args.freeze_ft:
+        net.ft.weight.requires_grad_(False)
+        net.bias.requires_grad_(False)
+        print(json.dumps({'freeze_ft': True}), flush=True)
     params = [p for p in net.parameters() if p.requires_grad]
     opt = torch.optim.Adam(params, lr=args.lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs, eta_min=args.lr * .05)
@@ -111,9 +155,11 @@ def main():
     def batch_on_device(split, ix):
         w, b, t = data[split]
         ix = ix.cpu()
-        return (w[ix].to(dtype=torch.long, device=args.device, non_blocking=True),
-                b[ix].to(dtype=torch.long, device=args.device, non_blocking=True),
-                t[ix].to(dtype=torch.float32, device=args.device, non_blocking=True))
+        # non_blocking copies to MPS can race and produce NaN losses.
+        nb = args.device.startswith('cuda')
+        return (w[ix].to(dtype=torch.long, device=args.device, non_blocking=nb),
+                b[ix].to(dtype=torch.long, device=args.device, non_blocking=nb),
+                t[ix].to(dtype=torch.float32, device=args.device, non_blocking=nb))
     best = float('inf')
     for epoch in range(1, args.epochs + 1):
         start = time.monotonic()
@@ -125,6 +171,8 @@ def main():
             bw, bb, bt = batch_on_device('train', ix)
             opt.zero_grad(set_to_none=True)
             err = loss(net(bw, bb, bt[:, 0]), bt)
+            if not torch.isfinite(err):
+                raise RuntimeError(f'non-finite loss at epoch {epoch}')
             err.backward()
             opt.step()
             total += err.item() * len(ix)

@@ -315,7 +315,7 @@ module Experion
       book_mode = !openings.empty?
 
       n.times do |g|
-        if (g & 7) == 7
+        if (g & 3) == 3
           Raw.write_stdout("selfplay w#{seed} #{g + 1}/#{n}\n")
         end
         s.new_game
@@ -349,7 +349,7 @@ module Experion
         decided = false
         ply = 0
         loop do
-          break if ply >= 220
+          break if ply >= 160
           break if pos.halfmove >= 100
           break if Eval.insufficient_material?(pos)
           mv = begin
@@ -368,6 +368,13 @@ module Experion
           if score_white.abs < 8000
             parts = pos.to_fen.split
             samples << "#{parts[0]} #{parts[1]} #{parts[2]} #{parts[3]};#{score_white}"
+          end
+          # Adjudicate won games instead of burning 400k nodes × 160 plies
+          # in a decided endgame (that stalled the 2k run at ~10 min/game).
+          if ply >= 16 && score_white.abs >= 1500
+            result = score_white > 0 ? 1.0 : 0.0
+            decided = true
+            break
           end
 
           child = pos

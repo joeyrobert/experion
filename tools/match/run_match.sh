@@ -26,11 +26,15 @@ case ${3:-tscp} in
   cerulean)  OPP_BIN=$BASE/tools/match/uci_bridge; OPP_NAME=CeruleanJS; OPP_ARGS="node /Users/joey/Repos/ceruleanjs/src/index.js" ;;
   crafty)    OPP_BIN=$BASE/tools/match/uci_bridge; OPP_NAME=Crafty252; OPP_ARGS="--needs-restart $BASE/tools/match/Crafty-Chess-25.2/crafty252" ;;
   fruit)     OPP_BIN=/Users/joey/Repos/engines/fruit/src/fruit; OPP_NAME=Fruit21_CCRL2694; OPP_ARGS="" ;;
-  gnuchess)  OPP_BIN=$(which gnuchess); OPP_NAME=GNUChess; OPP_ARGS="" ;;
+  gnuchess)  OPP_BIN=/opt/homebrew/bin/gnuchess; OPP_NAME=GNUChess630_CCRL2823; OPP_ARGS="--uci" ;;
   ruffian)   OPP_BIN=$BASE/tools/match/uci_bridge; OPP_NAME=Ruffian; OPP_ARGS=$BASE/tools/match/ruffian ;;
   vice)      OPP_BIN=$BASE/tools/match/ladder/vice11; OPP_NAME=Vice11_CCRL1997; OPP_ARGS="" ;;
   sungorus)  OPP_BIN=$BASE/tools/match/ladder/sungorus14; OPP_NAME=Sungorus14_CCRL2269; OPP_ARGS="" ;;
   bbc)       OPP_BIN=$BASE/tools/match/ladder/bbc12; OPP_NAME=BBC12_ApproxCCRL2465; OPP_ARGS="" ;;
+  glaurung)  OPP_BIN=$BASE/tools/match/ladder/glaurung22; OPP_NAME=Glaurung22_CCRL2911; OPP_ARGS="" ;;
+  teki)      OPP_BIN=$BASE/tools/match/ladder/teki2; OPP_NAME=Teki2_CCRL2400; OPP_ARGS="" ;;
+  cinnamon)  OPP_BIN=$BASE/tools/match/ladder/cinnamon25; OPP_NAME=Cinnamon25_CCRL2336; OPP_ARGS="" ;;
+  wyld)      OPP_BIN=$BASE/tools/match/ladder/wyldchess151; OPP_NAME=WyldChess151_CCRL2679; OPP_ARGS="" ;;
   *)         OPP_BIN=$3; OPP_NAME=${3:t}; OPP_ARGS="" ;;
 esac
 

@@ -8,7 +8,8 @@
 # - fastchess never sends ucinewgame between games, and some engines (Crafty)
 #   do not implement `new`: detect non-continuation positions and restart the
 #   child; forward only the delta moves for continuations
-# - convert UCI millisecond clocks to xboard centiseconds
+# - convert UCI millisecond clocks to xboard centiseconds, using the
+#   side-to-move's clock (wtime/btime), not always White's
 # - discard stale engine moves from searches that outlived their game
 # - resolve SAN replies (older Crafty) against a tracked shadow position,
 #   with a structural fallback tolerant of disambiguation differences
@@ -174,8 +175,14 @@ class Bridge
     when "position"
       apply_position(tokens)
     when "go"
-      my = param(tokens, "wtime") || param(tokens, "btime")
-      opp = param(tokens, "btime") || param(tokens, "wtime")
+      # wtime is always present in a match, so `wtime || btime` used to
+      # give Crafty White's clock on every move. As Black that is the
+      # opponent's remaining time — a color bug, not an eval-sign bug.
+      stm_white = @shadow.stm == Experion::WHITE.to_u8!
+      my_key = stm_white ? "wtime" : "btime"
+      opp_key = stm_white ? "btime" : "wtime"
+      my = param(tokens, my_key) || param(tokens, opp_key)
+      opp = param(tokens, opp_key) || param(tokens, my_key)
 
       # deliver buffered position changes only now — the child must not
       # think during book replay or between games

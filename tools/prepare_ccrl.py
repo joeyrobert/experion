@@ -42,14 +42,20 @@ def main():
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     n_max = args.positions
+    n_val = max(n_max // 16, 50_000)
     store = {
-        split: {
+        'train': {
             'w': np.full((n_max, 32), 768, dtype=np.int16),
             'b': np.full((n_max, 32), 768, dtype=np.int16),
             't': np.empty((n_max, 3), dtype=np.float32),
             'n': 0,
-        }
-        for split in ('train', 'val')
+        },
+        'val': {
+            'w': np.full((n_val, 32), 768, dtype=np.int16),
+            'b': np.full((n_val, 32), 768, dtype=np.int16),
+            't': np.empty((n_val, 3), dtype=np.float32),
+            'n': 0,
+        },
     }
     seen = set()
     games = 0
@@ -88,7 +94,8 @@ def main():
                         if len(w) <= 32:
                             row = store[split]
                             i = row['n']
-                            if i < n_max:
+                            cap = row['w'].shape[0]
+                            if i < cap:
                                 row['w'][i, :len(w)] = w
                                 row['b'][i, :len(b)] = b
                                 row['t'][i] = ph, float(m[1]) * 100, result

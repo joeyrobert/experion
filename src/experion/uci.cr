@@ -232,7 +232,10 @@ module Experion
                   end
           alloc = alloc.clamp(10i64, my_time * 3 // 4)
           limits.soft_ms = alloc
-          limits.hard_ms = Math.min(alloc * 5, my_time * 3 // 4)
+          # 5×soft is 4.5s at 10+0.1 — two of those leave 154ms and a 5%
+          # score. Keep the original soft budget; never spend more than
+          # 2.2s or ¾ remaining on one move.
+          limits.hard_ms = Math.min(Math.min(alloc * 5, my_time * 3 // 4), 2200i64)
         else
           limits.infinite = true
         end

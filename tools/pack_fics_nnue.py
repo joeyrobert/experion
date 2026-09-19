@@ -133,7 +133,11 @@ def main():
             if games % 2000 == 0:
                 print(games, {k: v["n"] for k, v in store.items()}, flush=True)
     net = Net(args.width).to(args.device)
-    net.load_state_dict(torch.load(args.pt, map_location=args.device, weights_only=True))
+    pt = Path(args.pt)
+    if pt.read_bytes()[:4] == b"ENN4":
+        net.load_enn4(str(pt))
+    else:
+        net.load_state_dict(torch.load(args.pt, map_location=args.device, weights_only=True))
     net.eval()
     with torch.no_grad():
         for split, row in store.items():

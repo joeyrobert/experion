@@ -802,13 +802,13 @@ module Experion
         prune_lmp = false
         if !in_check && !gives_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
           lmp_margin = if depth == 1
-                        5
-                      elsif depth == 2
                         8
+                      elsif depth == 2
+                        12
                       elsif depth == 3
-                        13
-                      else
                         18
+                      else
+                        24
                       end
           lmp_margin += 2 if improving
           prune_lmp = true if legal > lmp_margin
