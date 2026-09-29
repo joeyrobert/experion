@@ -83,7 +83,7 @@ function renderTags() {
 function renderControls() {
   const anyEngine = players.w !== 'human' || players.b !== 'human';
   $('pause').disabled = !anyEngine;
-  $('pause').textContent = paused ? 'Resume' : 'Pause';
+  $('pause').textContent = paused ? (game.history().length ? 'Resume' : 'Start') : 'Pause';
   $('pause').classList.toggle('active', paused);
   $('go').disabled = thinking;
 }
@@ -120,7 +120,7 @@ function renderStatus() {
   else if (game.isInsufficientMaterial()) { s.textContent = 'Draw: insufficient material.'; s.className = 'over'; }
   else if (game.isDraw()) { s.textContent = 'Draw by the fifty-move rule.'; s.className = 'over'; }
   else if (thinking) { s.textContent = nameOf(thinkingId) + ' is thinking…'; s.className = 'thinking'; }
-  else if (paused && players[side] !== 'human') s.textContent = 'Paused';
+  else if (paused && players[side] !== 'human') s.textContent = game.history().length ? 'Paused. Press Resume to continue.' : 'Ready. Press Start to begin.';
   else if (players[side] === 'human') s.textContent = (humanCount() === 2 ? who + ' to move' : 'Your move') + (game.inCheck() ? ' (check)' : '');
   else s.textContent = who + ' to move';
 }
@@ -246,6 +246,7 @@ async function humanMove(from, to) {
   let promotion;
   if (piece && piece.type === 'p' && (to[1] === '8' || to[1] === '1')) promotion = await choosePromotion(piece.color);
   try { game.move({ from, to, promotion }); } catch { render(); return; }
+  paused = false;
   render();
   afterMove();
 }
@@ -286,13 +287,15 @@ function newGame(fen) {
   afterMove();
 }
 
+// Changing who plays only changes the setup. It never starts a search: if an engine is now to
+// move, the game waits until the user resumes, plays a move or starts a new game.
 function playersChanged() {
   cancelSearch();
   engineError = null;
   readPlayers();
   chooseOrientation();
+  if (!game.isGameOver() && players[game.turn()] !== 'human') paused = true;
   render();
-  afterMove();
 }
 
 function undo() {
@@ -405,3 +408,4 @@ if (query.has('bridge')) {
 }
 
 newGame();
+if (players[game.turn()] !== 'human') { paused = true; render(); } // a link never starts play by itself
