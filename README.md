@@ -4,10 +4,11 @@ A UCI chess engine written in Crystal by Joey Robert, with a neural network
 evaluation (NNUE) trained from scratch on CCRL game data.
 
 ```
-     ___         _             
- ___|  _|___ ___| |_ _ _ ___ ___ 
-|  _|  _| -_| .'|  | | | .'|  _|
-|_| |_| |___|__,|_|\___|__,|_|  
+                     _         
+ ___ _ _ ___ ___ ___|_|___ ___ 
+| -_|_'_| . | -_|  _| | . |   |
+|___|_,_|  _|___|_| |_|___|_|_|
+        |_|                    
 ```
 
 ## Download
