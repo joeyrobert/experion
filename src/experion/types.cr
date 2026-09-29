@@ -5,7 +5,7 @@
 # `piece_code = piece_type + 6 * color`.
 
 module Experion
-  VERSION = "0.1.0"
+  VERSION = "0.1.1"
 
   # Colors -------------------------------------------------------------------
 
