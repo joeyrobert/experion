@@ -49,6 +49,21 @@ module Experion
         print Position.new(fen).legal_moves_string
         print "\n"
       end
+    when "nnuebench"
+      Nnue.load(args[1]) || abort("cannot load net")
+      pos = Position.new("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
+      a = Pointer(Int32).malloc(Nnue.acc_row)
+      b = Pointer(Int32).malloc(Nnue.acc_row)
+      t = Time.instant
+      200_000.times { Nnue.refresh(a, pos) }
+      puts "refresh: #{((Time.instant - t).total_nanoseconds / 200_000).round(0)} ns"
+      t = Time.instant
+      sink = 0
+      2_000_000.times { |i| sink += Nnue.evaluate(a, 20, i.odd?, 30) }
+      puts "evaluate: #{((Time.instant - t).total_nanoseconds / 2_000_000).round(0)} ns (#{sink})"
+      t = Time.instant
+      2_000_000.times { |i| Nnue.apply_delta(b, a, 100, 200, 0, 0, 300, 400, 0, 0, 1, 1) }
+      puts "apply_delta(1rm+1add): #{((Time.instant - t).total_nanoseconds / 2_000_000).round(0)} ns"
     when "bench"
       Bench.run(args[1]?.try(&.to_i?) || 0)
     when "epdtest"

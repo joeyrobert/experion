@@ -7,6 +7,8 @@
 # across both game history and the live search path.
 
 module Experion
+  NNUE_VERIFY = !!ENV["EXPERION_NNUE_VERIFY"]?
+
   # Atomic itself is a value type. Share a reference containing it so every
   # worker observes the same storage rather than a copy of the stop flag.
   class SearchStop
@@ -90,6 +92,7 @@ module Experion
     @lmr : StaticArray(Int32, LMR_N)
     @root_pos : Position
     @accs : Pointer(Int32)
+    @nnue_cache : Nnue::Cache
     @sevals : Pointer(Int32)
     # 3 words/entry: hash, packed white-POV base, hang-overlay (or UNKNOWN).
     # Overlay is STM-relative and position-only, so tree and qsearch share
@@ -113,6 +116,7 @@ module Experion
       @scratch = Pointer(UInt16).malloc(MAX_MOVES)
       @hashes = Pointer(UInt64).malloc(HASH_SIZE)
       @accs = Pointer(Int32).malloc((MAX_PLY + 8) * Nnue.acc_row)
+      @nnue_cache = Nnue::Cache.new
       @sevals = Pointer(Int32).malloc(MAX_PLY + 8)
       @base_ply = 0
       @nodes = 0u64
@@ -205,14 +209,24 @@ module Experion
       # for every piece, so a king move invalidates incremental updates.
       # ENN4 (and any 1-bucket net) only needs the king's own feature moved,
       # including castling's rook.
+      king_refresh_pov = -1
       if pc % 6 == KING && Nnue.king_buckets > 1
-        Nnue.refresh(@accs + child_ply * Nnue.acc_row, child)
-        return
+        if Nnue.v5?
+          # ENN5: only the mover's own perspective is invalid, and only when
+          # its king bucket/mirror context changed.
+          mover = pos.stm.to_i
+          if Nnue.ctx_for(child, mover) != Nnue.ctx_for(pos, mover)
+            king_refresh_pov = mover
+          end
+        else
+          Nnue.refresh(@accs + child_ply * Nnue.acc_row, child)
+          return
+        end
       end
 
       us = pos.stm.to_i
-      wbucket = Nnue.king_bucket(pos.king_sq(WHITE))
-      bbucket = Nnue.king_bucket(pos.king_sq(BLACK))
+      wbucket = Nnue.ctx_for(pos, 0)
+      bbucket = Nnue.ctx_for(pos, 1)
 
       if pc % 6 == KING && (from - to).abs == 2
         rfrom, rto = case to
@@ -233,6 +247,7 @@ module Experion
           Nnue.feature_index(rook, rto, 0, wbucket),
           Nnue.feature_index(rook, rto, 1, bbucket),
           2, 2)
+        Nnue.refresh_half_cached(@nnue_cache, @accs + child_ply * Nnue.acc_row, child, king_refresh_pov) if king_refresh_pov >= 0
         return
       end
 
@@ -260,6 +275,7 @@ module Experion
           @accs + parent_ply * Nnue.acc_row,
           rmw1, rmb1, 0, 0, addw, addb, 0, 0, 1, 1)
       end
+      Nnue.refresh_half_cached(@nnue_cache, @accs + child_ply * Nnue.acc_row, child, king_refresh_pov) if king_refresh_pov >= 0
     end
 
     # Copy accumulator unchanged across a null move.
@@ -300,7 +316,18 @@ module Experion
       v_class = Nnue.enabled? && Nnue.blend == 100 ? 0 : Eval.evaluate(pos)
       if Nnue.enabled?
         # NNUE: use the incrementally updated accumulator
-        v_nnue = Nnue.evaluate(@accs + ply * Nnue.acc_row, pos.phase, pos.stm == WHITE.to_u8!)
+        if NNUE_VERIFY
+          fresh = Pointer(Int32).malloc(Nnue.acc_row)
+          Nnue.refresh(fresh, pos)
+          row = @accs + ply * Nnue.acc_row
+          Nnue.acc_row.times do |i|
+            if fresh[i] != row[i]
+              STDERR.puts "NNUE VERIFY FAIL ply=#{ply} i=#{i} inc=#{row[i]} fresh=#{fresh[i]} fen=#{pos.to_fen}"
+              exit 3
+            end
+          end
+        end
+        v_nnue = Nnue.evaluate(@accs + ply * Nnue.acc_row, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
         # EvalBlend: 0 = pure classical, 100 = pure NNUE
         blend = Nnue.blend
         v = (v_class * (100 - blend) + v_nnue * blend) // 100
@@ -318,13 +345,19 @@ module Experion
       v
     end
 
+    def raw_nnue(pos : Position) : Int32
+      return 0 unless Nnue.enabled?
+      Nnue.refresh(@accs, pos)
+      Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
+    end
+
     # Public-facing eval: refresh the NNUE accumulator for `pos` and
     # return the blend-applied value. Used by the UCI `eval` command.
     def eval_for(pos : Position) : Int32
       v_class = Nnue.enabled? && Nnue.blend == 100 ? 0 : Eval.evaluate(pos)
       if Nnue.enabled?
         Nnue.refresh(@accs, pos)
-        v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!)
+        v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
         blend = Nnue.blend
         v = (v_class * (100 - blend) + v_nnue * blend) // 100
         v += Eval.hang_overlay(pos) if blend == 100

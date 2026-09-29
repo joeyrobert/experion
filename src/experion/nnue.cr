@@ -65,7 +65,13 @@ module Experion
     @@acc_row : Int32 = 512  # 2 * h
     @@king_buckets : Int32 = 1
     @@v4 = false
+    @@v5 = false
+    @@gen = 0
+    @@out_buckets : Int32 = 8
+    @@out_b5 : Pointer(Int32)? = nil
     @@bias : Pointer(Int16)? = nil
+    KBMAP5 = StaticArray[0, 1, 2, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
+                         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]
     FEATURES_PER_BUCKET = 1536
 
     def self.h : Int32
@@ -105,6 +111,7 @@ module Experion
         return false
       end
       return load_v4(data) if data.size >= 8 && data[0, 4] == "ENN4"
+      return load_v5(data) if data.size >= 20 && data[0, 4] == "ENN5"
       return false unless data.size > 24 && data[0, 4] == "ENN3"
 
       h = IO::Memory.new(data)
@@ -174,6 +181,59 @@ module Experion
       true
     end
 
+    # ENN5: magic, u32 H, KB, OB, 0; then int16 ft[768*KB*H] (QA 255),
+    # int16 bias[H], int16 out_w[OB*2H] (QB 64), int32 out_b[OB].
+    # Accumulator rows (white persp, black persp) are Int32 with the bias
+    # already folded in.
+    private def self.load_v5(data : String) : Bool
+      sl = data.to_slice
+      h = IO::ByteFormat::LittleEndian.decode(Int32, sl[4, 4])
+      kb = IO::ByteFormat::LittleEndian.decode(Int32, sl[8, 4])
+      ob = IO::ByteFormat::LittleEndian.decode(Int32, sl[12, 4])
+      return false unless h.in?(32..4096) && kb == 8 && ob.in?(1..32)
+      n_ft = 768 * kb * h
+      expected = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4
+      return false unless data.bytesize == expected
+      @@w1 = Pointer(Int16).malloc(n_ft)
+      LibMemory.memcpy(@@w1.not_nil!.as(Void*), (sl.to_unsafe + 20).as(Void*), n_ft * 2)
+      @@bias = Pointer(Int16).malloc(h)
+      LibMemory.memcpy(@@bias.not_nil!.as(Void*), (sl.to_unsafe + 20 + n_ft * 2).as(Void*), h * 2)
+      @@w2 = Pointer(Int16).malloc(ob * 2 * h)
+      LibMemory.memcpy(@@w2.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h) * 2).as(Void*), ob * 2 * h * 2)
+      @@out_b5 = Pointer(Int32).malloc(ob)
+      LibMemory.memcpy(@@out_b5.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h + ob * 2 * h) * 2).as(Void*), ob * 4)
+      @@h = h
+      @@acc_row = 2 * h
+      @@king_buckets = kb
+      @@out_buckets = ob
+      @@v4 = false
+      @@v5 = true
+      @@gen += 1
+      @@enabled = true
+      true
+    end
+
+    def self.v5? : Bool
+      @@v5
+    end
+
+    # ENN5 per-perspective context: king bucket | mirror<<8. The perspective's
+    # own king square is taken from that side's POV (black flipped vertically);
+    # kings on files e-h mirror every square horizontally.
+    # Bucket context for one perspective: ENN5 packs bucket|mirror, older
+    # formats use the plain file-half bucket.
+    def self.ctx_for(pos : Position, pov : Int) : Int32
+      ksq = pos.king_sq(pov)
+      @@v5 ? king_ctx(ksq, pov) : king_bucket(ksq)
+    end
+
+    def self.king_ctx(king_sq : Int, pov : Int) : Int32
+      rk = pov.zero? ? king_sq.to_i! : king_sq.to_i! ^ 56
+      mirror = (rk & 7) >= 4 ? 1 : 0
+      rk ^= 7 if mirror == 1
+      KBMAP5[((rk >> 3) << 2) | (rk & 7)] | (mirror << 8)
+    end
+
     # Queenside (a-d) vs kingside (e-h) king bucket. Depends only on file, so
     # it is unaffected by the rank-mirroring used for POV1 squares. MUST
     # match tools/nnue_train.py's king_bucket exactly — this is the mapping
@@ -195,6 +255,11 @@ module Experion
       sq = sq.to_i!
       color = pc // 6
       ptype = pc % 6
+      if @@v5
+        rel_sq = pov.zero? ? sq : sq ^ 56
+        rel_sq ^= 7 if (bucket.to_i! >> 8) != 0
+        return (bucket.to_i! & 255) * 768 + (color ^ pov.to_i!) * 384 + ptype * 64 + rel_sq
+      end
       if @@v4
         relative_color = color ^ pov.to_i!
         relative_square = pov.zero? ? sq : sq ^ 56
@@ -217,12 +282,52 @@ module Experion
                          addw1 : Int32, addb1 : Int32, addw2 : Int32, addb2 : Int32,
                          rm_count : Int32, add_count : Int32) : Nil
       w1 = @@w1.not_nil!
-      dst.copy_from(src, @@acc_row)
       hw = @@h
+      if @@v5
+        apply_delta_v5(dst, src, w1, hw, rmw1, rmb1, rmw2, rmb2, addw1, addb1, addw2, addb2, rm_count, add_count)
+        return
+      end
+      dst.copy_from(src, @@acc_row)
       acc_add(dst, w1, rmw1 * hw, rmb1 * hw, hw, -1) if rm_count >= 1
       acc_add(dst, w1, rmw2 * hw, rmb2 * hw, hw, -1) if rm_count == 2
       acc_add(dst, w1, addw1 * hw, addb1 * hw, hw, 1) if add_count >= 1
       acc_add(dst, w1, addw2 * hw, addb2 * hw, hw, 1) if add_count == 2
+    end
+
+    # ENN5: one fused pass per perspective, dst = src - rm... + add...
+    # (no row copy). Unused slots point at row 0 with a zero weight of 0 by
+    # construction of the branches below.
+    @[AlwaysInline]
+    private def self.apply_delta_v5(dst : Pointer(Int32), src : Pointer(Int32), w1 : Pointer(Int16), hw : Int32,
+                                    rmw1 : Int32, rmb1 : Int32, rmw2 : Int32, rmb2 : Int32,
+                                    addw1 : Int32, addb1 : Int32, addw2 : Int32, addb2 : Int32,
+                                    rm_count : Int32, add_count : Int32) : Nil
+      fused_row(dst, src, w1 + rmw1 * hw, rm_count >= 2 ? w1 + rmw2 * hw : Pointer(Int16).null,
+                w1 + addw1 * hw, add_count >= 2 ? w1 + addw2 * hw : Pointer(Int16).null, hw)
+      fused_row(dst + hw, src + hw, w1 + rmb1 * hw, rm_count >= 2 ? w1 + rmb2 * hw : Pointer(Int16).null,
+                w1 + addb1 * hw, add_count >= 2 ? w1 + addb2 * hw : Pointer(Int16).null, hw)
+    end
+
+    @[AlwaysInline]
+    private def self.fused_row(dst : Pointer(Int32), src : Pointer(Int32), rm1 : Pointer(Int16), rm2 : Pointer(Int16),
+                               add1 : Pointer(Int16), add2 : Pointer(Int16), hw : Int32) : Nil
+      i = 0
+      if rm2.null? && add2.null?
+        while i < hw
+          dst[i] = src[i] - rm1[i].to_i32 + add1[i].to_i32
+          i += 1
+        end
+      elsif add2.null?
+        while i < hw
+          dst[i] = src[i] - rm1[i].to_i32 - rm2[i].to_i32 + add1[i].to_i32
+          i += 1
+        end
+      else
+        while i < hw
+          dst[i] = src[i] - rm1[i].to_i32 - rm2[i].to_i32 + add1[i].to_i32 + add2[i].to_i32
+          i += 1
+        end
+      end
     end
 
     @[AlwaysInline]
@@ -273,18 +378,131 @@ module Experion
       end
     end
 
+    def self.gen : Int32
+      @@gen
+    end
+
+    # Per-searcher "Finny" table: for each (perspective, bucket, mirror) the
+    # last accumulator half built for it plus the piece sets it reflects, so a
+    # king-bucket change only re-applies the piece diff.
+    class Cache
+      getter rows : Pointer(Int32)
+      getter bbs : Pointer(UInt64)
+      getter live : Pointer(UInt8)
+      property gen : Int32 = -1
+
+      def initialize
+        h = Nnue.h
+        @rows = Pointer(Int32).malloc(32 * h)
+        @bbs = Pointer(UInt64).malloc(32 * 12)
+        @live = Pointer(UInt8).malloc(32)
+        reset
+      end
+
+      def reset : Nil
+        32.times { |i| @live[i] = 0u8 }
+        @gen = Nnue.gen
+      end
+    end
+
+    def self.refresh_half_cached(cache : Cache, row : Pointer(Int32), pos : Position, pov : Int) : Nil
+      w1 = @@w1.not_nil!
+      hw = @@h
+      cache.reset if cache.gen != @@gen
+      ctx = ctx_for(pos, pov)
+      e = pov.to_i32! * 16 + (ctx & 255) + ((ctx >> 8) << 3)
+      crow = cache.rows + e * hw
+      cbb = cache.bbs + e * 12
+      if cache.live[e] == 0u8
+        bias5 = @@bias.not_nil!
+        h = 0
+        while h < hw
+          crow[h] = bias5[h].to_i32
+          h += 1
+        end
+        12.times { |i| cbb[i] = 0u64 }
+        cache.live[e] = 1u8
+      end
+      pc = 0
+      while pc < 12
+        cur = pos.pieces_of(pc // 6, pc % 6)
+        old = cbb[pc]
+        removed = old & ~cur
+        added = cur & ~old
+        while removed != 0
+          sq = removed.trailing_zeros_count.to_i32!
+          removed &= removed - 1
+          src = w1 + feature_index(pc, sq, pov, ctx) * hw
+          h = 0
+          while h < hw
+            crow[h] -= src[h].to_i32
+            h += 1
+          end
+        end
+        while added != 0
+          sq = added.trailing_zeros_count.to_i32!
+          added &= added - 1
+          src = w1 + feature_index(pc, sq, pov, ctx) * hw
+          h = 0
+          while h < hw
+            crow[h] += src[h].to_i32
+            h += 1
+          end
+        end
+        cbb[pc] = cur
+        pc += 1
+      end
+      (row + pov * hw).copy_from(crow, hw)
+    end
+
+    # ENN5: rebuild a single perspective's half of the row (bias folded in).
+    def self.refresh_half(row : Pointer(Int32), pos : Position, pov : Int) : Nil
+      w1 = @@w1.not_nil!
+      hw = @@h
+      bias5 = @@bias.not_nil!
+      dst = row + pov * hw
+      ctx = ctx_for(pos, pov)
+      h = 0
+      while h < hw
+        dst[h] = bias5[h].to_i32
+        h += 1
+      end
+      sq = 0
+      while sq < 64
+        pc = pos.piece_at(sq)
+        unless pc == NO_PIECE
+          src = w1 + feature_index(pc, sq, pov, ctx) * hw
+          h = 0
+          while h < hw
+            dst[h] += src[h].to_i32
+            h += 1
+          end
+        end
+        sq += 1
+      end
+    end
+
     # Rebuild an accumulator row from scratch (used at root and after any
     # king move, since a moving king changes that perspective's bucket for
     # EVERY feature, not just its own).
     def self.refresh(row : Pointer(Int32), pos : Position) : Nil
       w1 = @@w1.not_nil!
       hw = @@h
-      wbucket = king_bucket(pos.king_sq(WHITE))
-      bbucket = king_bucket(pos.king_sq(BLACK))
+      wbucket = ctx_for(pos, 0)
+      bbucket = ctx_for(pos, 1)
       h = 0
-      while h < @@acc_row
-        row[h] = 0
-        h += 1
+      if @@v5
+        bias5 = @@bias.not_nil!
+        while h < hw
+          row[h] = bias5[h].to_i32
+          row[hw + h] = bias5[h].to_i32
+          h += 1
+        end
+      else
+        while h < @@acc_row
+          row[h] = 0
+          h += 1
+        end
       end
       sq = 0
       while sq < 64
@@ -307,7 +525,8 @@ module Experion
 
     # Evaluate from an accumulator row. Returns cp from the POV OF WHITE
     # scaled to centipawns (stm flip applied by caller like classical eval).
-    def self.evaluate(row : Pointer(Int32), phase : Int32, stm_white : Bool) : Int32
+    def self.evaluate(row : Pointer(Int32), phase : Int32, stm_white : Bool, npieces : Int32 = 32) : Int32
+      return evaluate_v5(row, stm_white, npieces) if @@v5
       return evaluate_v4(row, phase, stm_white) if @@v4
       wh = @@wh.not_nil!
       bh = @@bh.not_nil!
@@ -364,6 +583,29 @@ module Experion
       cp = (blended * 600) >> 9
       cp = stm_white ? cp : -cp
       cp.to_i32!
+    end
+
+    # SCReLU over [stm acc, other acc] against the output-bucket weights.
+    # Returns cp from the side to move's POV.
+    private def self.evaluate_v5(row : Pointer(Int32), stm_white : Bool, npieces : Int32) : Int32
+      hw = @@h
+      ob = ((npieces - 2) // 4).clamp(0, @@out_buckets - 1)
+      w = @@w2.not_nil! + ob * 2 * hw
+      us = stm_white ? row : row + hw
+      them = stm_white ? row + hw : row
+      s0 = 0i64
+      s1 = 0i64
+      i = 0
+      while i < hw
+        a = us[i].clamp(0, 255)
+        b = them[i].clamp(0, 255)
+        s0 += (a * a * w[i].to_i32).to_i64
+        s1 += (b * b * w[hw + i].to_i32).to_i64
+        i += 1
+      end
+      sum = s0 + s1
+      sum += @@out_b5.not_nil![ob]
+      ((sum * 400) // (255i64 * 255 * 64)).clamp(-28000i64, 28000i64).to_i32
     end
 
     private def self.evaluate_v4(row : Pointer(Int32), phase : Int32, stm_white : Bool) : Int32

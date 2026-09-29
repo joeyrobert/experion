@@ -129,6 +129,10 @@ module Experion
           v = searcher.eval_for(pos)
           puts "info string static eval #{v} cp"
           STDOUT.flush
+        when "nnueeval"
+          # raw network output (side-to-move POV, no overlay) for tools/check_v5.py
+          puts "info string nnue #{searcher.raw_nnue(pos)}"
+          STDOUT.flush
         when "stop"
           searcher.stop!
         when "ponderhit"
