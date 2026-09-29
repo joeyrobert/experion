@@ -29,6 +29,7 @@ else:
 with torch.no_grad():
     net.ft.weight.copy_(torch.round(net.ft.weight * T.QA) / T.QA)
     net.bias.copy_(torch.round(net.bias * T.QA) / T.QA)
+    net.mat.copy_(torch.round(net.mat))
     net.out_w.copy_(torch.round(net.out_w * T.QB) / T.QB)
     net.out_b.copy_(torch.round(net.out_b * T.QA * T.QA * T.QB) / (T.QA * T.QA * T.QB))
 net.eval()

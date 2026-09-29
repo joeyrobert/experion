@@ -67,6 +67,8 @@ module Experion
     @@v4 = false
     @@v5 = false
     @@gen = 0
+    @@mat5 = StaticArray(Int32, 5).new(0)
+    @@has_mat5 = false
     @@out_buckets : Int32 = 8
     @@out_b5 : Pointer(Int32)? = nil
     @@bias : Pointer(Int16)? = nil
@@ -192,7 +194,8 @@ module Experion
       ob = IO::ByteFormat::LittleEndian.decode(Int32, sl[12, 4])
       return false unless h.in?(32..4096) && kb == 8 && ob.in?(1..32)
       n_ft = 768 * kb * h
-      expected = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4
+      has_mat = IO::ByteFormat::LittleEndian.decode(Int32, sl[16, 4]) == 1
+      expected = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4 + (has_mat ? 10 : 0)
       return false unless data.bytesize == expected
       @@w1 = Pointer(Int16).malloc(n_ft)
       LibMemory.memcpy(@@w1.not_nil!.as(Void*), (sl.to_unsafe + 20).as(Void*), n_ft * 2)
@@ -202,6 +205,11 @@ module Experion
       LibMemory.memcpy(@@w2.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h) * 2).as(Void*), ob * 2 * h * 2)
       @@out_b5 = Pointer(Int32).malloc(ob)
       LibMemory.memcpy(@@out_b5.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h + ob * 2 * h) * 2).as(Void*), ob * 4)
+      @@has_mat5 = has_mat
+      if has_mat
+        moff = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4
+        5.times { |i| @@mat5[i] = IO::ByteFormat::LittleEndian.decode(Int16, sl[moff + 2 * i, 2]).to_i32 }
+      end
       @@h = h
       @@acc_row = 2 * h
       @@king_buckets = kb
@@ -314,18 +322,18 @@ module Experion
       i = 0
       if rm2.null? && add2.null?
         while i < hw
-          dst[i] = src[i] - rm1[i].to_i32 + add1[i].to_i32
-          i += 1
+          dst[i] = src[i] &- rm1[i].to_i32 &+ add1[i].to_i32
+          i &+= 1
         end
       elsif add2.null?
         while i < hw
-          dst[i] = src[i] - rm1[i].to_i32 - rm2[i].to_i32 + add1[i].to_i32
-          i += 1
+          dst[i] = src[i] &- rm1[i].to_i32 &- rm2[i].to_i32 &+ add1[i].to_i32
+          i &+= 1
         end
       else
         while i < hw
-          dst[i] = src[i] - rm1[i].to_i32 - rm2[i].to_i32 + add1[i].to_i32 + add2[i].to_i32
-          i += 1
+          dst[i] = src[i] &- rm1[i].to_i32 &- rm2[i].to_i32 &+ add1[i].to_i32 &+ add2[i].to_i32
+          i &+= 1
         end
       end
     end
@@ -435,8 +443,8 @@ module Experion
           src = w1 + feature_index(pc, sq, pov, ctx) * hw
           h = 0
           while h < hw
-            crow[h] -= src[h].to_i32
-            h += 1
+            crow[h] = crow[h] &- src[h].to_i32
+            h &+= 1
           end
         end
         while added != 0
@@ -445,8 +453,8 @@ module Experion
           src = w1 + feature_index(pc, sq, pov, ctx) * hw
           h = 0
           while h < hw
-            crow[h] += src[h].to_i32
-            h += 1
+            crow[h] = crow[h] &+ src[h].to_i32
+            h &+= 1
           end
         end
         cbb[pc] = cur
@@ -474,8 +482,8 @@ module Experion
           src = w1 + feature_index(pc, sq, pov, ctx) * hw
           h = 0
           while h < hw
-            dst[h] += src[h].to_i32
-            h += 1
+            dst[h] = dst[h] &+ src[h].to_i32
+            h &+= 1
           end
         end
         sq += 1
@@ -521,6 +529,23 @@ module Experion
         end
         sq += 1
       end
+    end
+
+    # Full evaluation from the incremental row plus, for ENN5, the learned
+    # material lane. Returns cp from the side to move's POV.
+    def self.evaluate_pos(row : Pointer(Int32), pos : Position) : Int32
+      stm_white = pos.stm == WHITE.to_u8!
+      v = evaluate(row, pos.phase, stm_white, pos.occ_all.popcount.to_i32)
+      if @@v5 && @@has_mat5
+        us = stm_white ? 0 : 1
+        them = 1 - us
+        m = 0
+        5.times do |t|
+          m += @@mat5[t] * (pos.pieces_of(us, t).popcount.to_i32 - pos.pieces_of(them, t).popcount.to_i32)
+        end
+        v += m
+      end
+      v
     end
 
     # Evaluate from an accumulator row. Returns cp from the POV OF WHITE
@@ -599,9 +624,9 @@ module Experion
       while i < hw
         a = us[i].clamp(0, 255)
         b = them[i].clamp(0, 255)
-        s0 += (a * a * w[i].to_i32).to_i64
-        s1 += (b * b * w[hw + i].to_i32).to_i64
-        i += 1
+        s0 &+= (a &* a &* w[i].to_i32).to_i64
+        s1 &+= (b &* b &* w[hw &+ i].to_i32).to_i64
+        i &+= 1
       end
       sum = s0 + s1
       sum += @@out_b5.not_nil![ob]

@@ -68,23 +68,45 @@ def work(job):
             continue
         key = '|'.join(game.headers.get(k, '') for k in ['Event', 'Date', 'Round', 'White', 'Black'])
         val = int.from_bytes(hashlib.blake2b(key.encode(), digest_size=8).digest(), 'little') % 20 == 0
-        board = game.board()
-        for ply, node in enumerate(game.mainline()):
+        nodes = list(game.mainline())
+        # CCRL scores mix conventions across games: White-POV in some,
+        # mover-POV in others. White-POV series are smooth ply to ply while
+        # mover-POV series alternate sign, so pick the flatter hypothesis.
+        raw = {}
+        for ply, node in enumerate(nodes):
             m = PAT.search(node.comment)
-            if m and ply >= 8 and int(m[2]) >= min_depth and abs(float(m[1])) <= cap:
+            if m:
+                raw[ply] = (float(m[1]) * 100, int(m[2]))
+        tvw = tvm = 0.0
+        pairs = 0
+        for ply, (v, _) in raw.items():
+            if ply - 1 in raw:
+                u = raw[ply - 1][0]
+                sg, sp = (1 if ply % 2 == 0 else -1), (1 if (ply - 1) % 2 == 0 else -1)
+                tvw += abs(v - u)
+                tvm += abs(v * sg - u * sp)
+                pairs += 1
+        if pairs < 4 or abs(tvw - tvm) < 20 * pairs:
+            # ambiguous or unannotated game: skip rather than risk flipped labels
+            continue
+        mover = tvm < tvw
+        board = game.board()
+        for ply, node in enumerate(nodes):
+            if ply in raw and ply >= 8 and raw[ply][1] >= min_depth and abs(raw[ply][0]) <= cap * 100:
                 if not (board.is_check() or board.is_capture(node.move) or node.move.promotion):
                     pm = board.piece_map()
                     if len(pm) <= 32:
                         pc = np.full(32, 255, np.uint8)
                         sq = np.zeros(32, np.uint8)
-                        for i, (s, p) in enumerate(pm.items()):
+                        for i, (s_, p) in enumerate(pm.items()):
                             pc[i] = PC[(p.piece_type, p.color)]
-                            sq[i] = s
+                            sq[i] = s_
                         fen4 = ' '.join(board.fen().split()[:4])
                         h = int.from_bytes(hashlib.blake2b(fen4.encode(), digest_size=8).digest(), 'little')
+                        cpw = raw[ply][0] * ((1 if board.turn else -1) if mover else 1)
                         pcs.append(pc)
                         sqs.append(sq)
-                        meta.append((0 if board.turn else 1, int(round(float(m[1]) * 100)), result, ply, int(val)))
+                        meta.append((0 if board.turn else 1, int(round(cpw)), result, ply, int(val)))
                         hashes.append(h)
             board.push(node.move)
     np.savez(outp, pc=np.array(pcs, np.uint8).reshape(-1, 32), sq=np.array(sqs, np.uint8).reshape(-1, 32),

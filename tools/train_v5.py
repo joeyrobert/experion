@@ -43,6 +43,8 @@ class Net(torch.nn.Module):
         self.bias = torch.nn.Parameter(torch.zeros(h))
         self.out_w = torch.nn.Parameter(torch.randn(OB, 2 * h) * (1.0 / (2 * h) ** 0.5) * 0.5)
         self.out_b = torch.nn.Parameter(torch.zeros(OB))
+        # material lane in centipawns (P N B R Q), trained; exported so the engine adds it exactly
+        self.mat = torch.nn.Parameter(torch.tensor([100., 320., 330., 500., 900.]))
         self.register_buffer('kbmap', torch.tensor(KBMAP, dtype=torch.long))
 
     def perspective_idx(self, code, c):
@@ -75,7 +77,11 @@ class Net(torch.nn.Module):
         npc = (code != 12).sum(1)
         ob = ((npc - 2) // 4).clamp(0, OB - 1)
         w = self.out_w[ob]
-        return (x * w).sum(1) + self.out_b[ob]
+        oh = torch.nn.functional.one_hot(code, 13)[:, :, :12].sum(1).float()  # [B,12] piece counts
+        diff = oh[:, 0:5] - oh[:, 6:11]  # white minus black
+        sign = 1.0 - 2.0 * stm.float()
+        material = (diff * self.mat).sum(1) * sign
+        return (x * w).sum(1) + self.out_b[ob] + material / 400.0
 
     def export(self, path):
         def q(t, s, lo=-32768, hi=32767):
@@ -88,11 +94,12 @@ class Net(torch.nn.Module):
         ow = q(self.out_w, QB).astype('<i2')
         ob = q(self.out_b, QA * QA * QB, -2**31, 2**31 - 1).astype('<i4')
         with open(path, 'wb') as f:
-            f.write(b'ENN5' + struct.pack('<IIII', self.h, KB, OB, 0))
+            f.write(b'ENN5' + struct.pack('<IIII', self.h, KB, OB, 1))
             f.write(ft.tobytes())
             f.write(bias.tobytes())
             f.write(ow.tobytes())
             f.write(ob.tobytes())
+            f.write(np.rint(self.mat.detach().cpu().numpy()).astype('<i2').tobytes())
 
 
 def unpack(packed):
@@ -218,6 +225,8 @@ def main():
             if bi % 2000 == 0 and main_rank:
                 print(json.dumps({'epoch': epoch, 'step': bi, 'of': steps_per_epoch, 'loss': loss.item(),
                                   'sec': round(time.time() - t0)}), flush=True)
+        del perm
+        torch.cuda.empty_cache()
         if not main_rank:
             continue
         vl = evaluate()

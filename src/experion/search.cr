@@ -8,6 +8,20 @@
 
 module Experion
   NNUE_VERIFY = !!ENV["EXPERION_NNUE_VERIFY"]?
+  NO_OVERLAY = !!ENV["EXPERION_NO_OVERLAY"]?
+  NO_VETO = !ENV["EXPERION_VETO"]?
+  DIS = (ENV["EXPERION_DISABLE"]? || "").split(",")
+  DIS_NMP = DIS.includes?("nmp")
+  DIS_LMR = DIS.includes?("lmr")
+  DIS_FUT = DIS.includes?("fut")
+  DIS_LMP = DIS.includes?("lmp")
+  DIS_RAZOR = DIS.includes?("razor")
+  DIS_RFP = DIS.includes?("rfp")
+  DIS_SEEP = DIS.includes?("seep")
+  DIS_SING = DIS.includes?("sing")
+  DIS_RECAP = DIS.includes?("recap")
+  DIS_IIR = DIS.includes?("iir")
+  DIS_CHK = DIS.includes?("chk")
 
   # Atomic itself is a value type. Share a reference containing it so every
   # worker observes the same storage rather than a copy of the stop flag.
@@ -308,7 +322,7 @@ module Experion
         v = (raw >> 1).to_i32!
         v = -v if (raw & 1) == 1
         v = pos.stm == WHITE.to_u8! ? v : -v
-        v += cached_hang_overlay(pos, idx) if overlay && Nnue.enabled? && Nnue.blend == 100
+        v += cached_hang_overlay(pos, idx) if overlay && !NO_OVERLAY && Nnue.enabled? && Nnue.blend == 100
         return v
       end
 
@@ -327,7 +341,7 @@ module Experion
             end
           end
         end
-        v_nnue = Nnue.evaluate(@accs + ply * Nnue.acc_row, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
+        v_nnue = Nnue.evaluate_pos(@accs + ply * Nnue.acc_row, pos)
         # EvalBlend: 0 = pure classical, 100 = pure NNUE
         blend = Nnue.blend
         v = (v_class * (100 - blend) + v_nnue * blend) // 100
@@ -341,14 +355,14 @@ module Experion
       @eval_cache[idx * 3 + 1] = wv.abs.to_u64! << 1 | (wv < 0 ? 1u64 : 0u64)
       @eval_cache[idx * 3 + 2] = EVAL_OVERLAY_UNKNOWN
 
-      v += cached_hang_overlay(pos, idx) if overlay && Nnue.enabled? && Nnue.blend == 100
+      v += cached_hang_overlay(pos, idx) if overlay && !NO_OVERLAY && Nnue.enabled? && Nnue.blend == 100
       v
     end
 
     def raw_nnue(pos : Position) : Int32
       return 0 unless Nnue.enabled?
       Nnue.refresh(@accs, pos)
-      Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
+      Nnue.evaluate_pos(@accs, pos)
     end
 
     # Public-facing eval: refresh the NNUE accumulator for `pos` and
@@ -357,7 +371,7 @@ module Experion
       v_class = Nnue.enabled? && Nnue.blend == 100 ? 0 : Eval.evaluate(pos)
       if Nnue.enabled?
         Nnue.refresh(@accs, pos)
-        v_nnue = Nnue.evaluate(@accs, pos.phase, pos.stm == WHITE.to_u8!, pos.occ_all.popcount.to_i32)
+        v_nnue = Nnue.evaluate_pos(@accs, pos)
         blend = Nnue.blend
         v = (v_class * (100 - blend) + v_nnue * blend) // 100
         v += Eval.hang_overlay(pos) if blend == 100
@@ -653,7 +667,7 @@ module Experion
     # so a hanging check or desperado is not replaced with a faster mate.
     private def reject_hanging_root(pos : Position, count : Int32, best : UInt16,
                                     score : Int32, depth : Int32) : {UInt16, Int32}
-      return {best, score} if count < 2 || best == Moves::MOVE_NONE
+      return {best, score} if NO_VETO || count < 2 || best == Moves::MOVE_NONE
       return {best, score} if score.abs > Eval::MATE_IN_MAX
       return {best, score} unless hanging_quiet?(pos, best)
       i = 1
@@ -717,7 +731,7 @@ module Experion
       in_check = pos.in_check?
       # bounded check extension: the ply cap guarantees termination on
       # perpetual-check lines
-      depth += 1 if in_check && depth >= 1 && ply < 32
+      depth += 1 if !DIS_CHK && in_check && depth >= 1 && ply < 32
 
 
 
@@ -742,7 +756,7 @@ module Experion
       # verification search to see if it's MUCH better than all alternatives.
       # If singular, extend the TT move's search by 1 ply (or 2 for double).
       singular_ext = 0
-      if tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && tt_depth >= depth - 3 && !in_check &&
+      if !DIS_SING && tt_hit && tt_move != Moves::MOVE_NONE && depth >= 6 && tt_depth >= depth - 3 && !in_check &&
          tt_score.abs < Eval::MATE_IN_MAX && (tt_flags == TT::FLAG_EXACT || tt_flags == TT::FLAG_LOWER)
         verify_beta = tt_score - 2 * depth
         if verify_beta > -Eval::MATE_IN_MAX && verify_beta < b
@@ -756,7 +770,7 @@ module Experion
 
       # internal iterative reduction: without a hash move, search one ply
       # less — the IIR is cheaper than IID and gives most of the benefit.
-      depth -= 1 if tt_move == Moves::MOVE_NONE && depth >= 5 && !in_check
+      depth -= 1 if !DIS_IIR && tt_move == Moves::MOVE_NONE && depth >= 5 && !in_check
 
       static_eval = evaluate_search(pos, ply)
       @sevals[ply] = static_eval
@@ -765,21 +779,21 @@ module Experion
       improving = ply >= 2 && @sevals[ply] > @sevals[ply - 2]
 
       # razoring: if even a padded eval cannot raise alpha, verify with qsearch
-      if !in_check && depth <= 2 && ply > 0 && static_eval + 200 * depth <= a &&
+      if !DIS_RAZOR && !in_check && depth <= 2 && ply > 0 && static_eval + 200 * depth <= a &&
          a.abs < Eval::MATE_IN_MAX
         razor = qsearch(pos, a, a + 1, ply, limits, 0)
         return razor if razor <= a
       end
 
       # reverse futility pruning: tighter margin when not improving
-      if !in_check && depth <= 4 && static_eval - (improving ? 60 : 80) * depth >= b &&
+      if !DIS_RFP && !in_check && depth <= 4 && static_eval - (improving ? 60 : 80) * depth >= b &&
          b.abs < Eval::MATE_IN_MAX
         return static_eval
       end
 
       # null move pruning (need non-pawn material to avoid zugzwang blindness)
       non_pawn = pos.occ_of(us) & ~(pos.pieces_of(us, PAWN) | pos.pieces_of(us, KING))
-      if can_null && !in_check && depth >= 3 && static_eval >= b &&
+      if !DIS_NMP && can_null && !in_check && depth >= 3 && static_eval >= b &&
          (improving || static_eval >= b + 60) &&
          non_pawn != 0 && b.abs < Eval::MATE_IN_MAX
         np = pos
@@ -813,27 +827,27 @@ module Experion
         gives_check = child.in_check?
 
         # recapture extension: capturing on the previously-contested square
-        recapture = !quiet && prev_m != Moves::MOVE_NONE &&
+        recapture = !DIS_RECAP && !quiet && prev_m != Moves::MOVE_NONE &&
                     mv_to(m) == mv_to(prev_m) && ply < 32
 
         # futility pruning: hopeless quiets and clearly-losing captures
         prune_futility = false
         if !in_check && !gives_check && mv_promo_type(m) == 0 && legal >= 1 && b.abs < Eval::MATE_IN_MAX
           if quiet
-            prune_futility = true if depth <= 2 &&
+            prune_futility = true if !DIS_FUT && depth <= 2 &&
                                     static_eval + FUTILITY[depth] <= a
           else
             # SEE-based capture pruning: skip clearly-losing captures.
             # Depth 5–6 SEE < −300 was dropped (40% vs Crafty, not worse).
             see_val = See.see(pos, m)
-            prune_futility = true if depth <= 4 && see_val < -(80 * depth)
+            prune_futility = true if !DIS_SEEP && depth <= 4 && see_val < -(80 * depth)
           end
         end
 
         # late move pruning: at low depth, very late quiets are almost
         # never the best move. Aggressive pruning hurts in tactical lines.
         prune_lmp = false
-        if !in_check && !gives_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
+        if !DIS_LMP && !in_check && !gives_check && quiet && depth <= 4 && b.abs < Eval::MATE_IN_MAX
           lmp_margin = if depth == 1
                         8
                       elsif depth == 2
@@ -859,7 +873,7 @@ module Experion
             score = -negamax(child, dchild, -b, -a, ply + 1, limits, true, m)
           else
             r = 0
-            if depth >= 3 && legal > 3 && quiet && !in_check && !gives_check
+            if !DIS_LMR && depth >= 3 && legal > 3 && quiet && !in_check && !gives_check
               r = @lmr[depth.clamp(0, 63) * 64 + legal.clamp(0, 63)]
               h = @history[pc * 64 + mv_to(m)]
               r -= 1 if pc % 6 != PAWN && h > 4000

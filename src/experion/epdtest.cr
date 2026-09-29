@@ -22,7 +22,7 @@ module Experion
 
         fen_part = line.split("bm ")[0].strip
         bm_raw = line.split("bm ")[1]
-        best_moves = bm_raw.split(";")[0].split(",").map(&.strip.gsub(/[+#!?]/, ""))
+        best_moves = bm_raw.split(";")[0].split(/[,\s]+/).map(&.strip.gsub(/[+#!?]/, "")).reject(&.empty?)
 
         pos = begin
           Position.new(fen_part)
