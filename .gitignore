@@ -57,3 +57,8 @@ nnue*.bin*
 !/tools/match/benchmark.py
 !/tools/match/openings.pgn
 !/tools/match/openings.epd
+
+# browser engine is built by CI (tools/build_wasm.sh)
+/site/play/experion.wasm
+
+.DS_Store

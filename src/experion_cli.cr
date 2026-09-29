@@ -20,7 +20,7 @@ module Experion
     {s.last_completed_depth, s.nodes, dt}
   end
 
-  {% unless flag?(:win32) %}
+  {% unless flag?(:win32) || flag?(:wasi) %}
   # Training-data tooling (POSIX file APIs); not part of the Windows build.
   def self.dev_tool(cmd : String?, args : Array(String)) : Bool
     case cmd

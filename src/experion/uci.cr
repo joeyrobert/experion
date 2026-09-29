@@ -108,12 +108,19 @@ module Experion
           # final bestmove is written the same way.
           searcher.raw_output = true
           searcher.prepare_search
-          t = Thread.new do
-            best = searcher.think_smp(pos, game_hashes, limits, threads, false)
-            line = "bestmove #{best == Moves::MOVE_NONE ? "0000" : Moves.mv_uci(best)}\n"
-            Raw.write_stdout(line)
-          end
-          search_thread = t
+          {% if flag?(:wasi) %}
+            # WebAssembly has no threads: search inline; stdin is a preloaded
+            # command script, so blocking here is fine.
+            best = searcher.think_smp(pos, game_hashes, limits, 1, false)
+            Raw.write_stdout("bestmove #{best == Moves::MOVE_NONE ? "0000" : Moves.mv_uci(best)}\n")
+          {% else %}
+            t = Thread.new do
+              best = searcher.think_smp(pos, game_hashes, limits, threads, false)
+              line = "bestmove #{best == Moves::MOVE_NONE ? "0000" : Moves.mv_uci(best)}\n"
+              Raw.write_stdout(line)
+            end
+            search_thread = t
+          {% end %}
         when "setfen", "fen"
           # convenience: set position directly by FEN
           searcher.stop!

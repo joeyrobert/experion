@@ -16,7 +16,7 @@ require "./experion/nnue"
 require "./experion/search"
 require "./experion/san"
 require "./experion/epdtest"
-{% unless flag?(:win32) %}
+{% unless flag?(:win32) || flag?(:wasi) %}
 require "./experion/gendata"
 {% end %}
 

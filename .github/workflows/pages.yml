@@ -1,0 +1,51 @@
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'src/**', 'nets/**', 'tools/build_wasm.sh', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['site/**', 'src/**', 'nets/**', 'tools/build_wasm.sh', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crystal-lang/install-crystal@v1
+      - name: Install the WebAssembly toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld
+          command -v wasm-ld || sudo ln -sf "$(ls /usr/bin/wasm-ld-* | head -1)" /usr/local/bin/wasm-ld
+          curl -sSL -o sysroot.tar.gz https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sysroot-25.0.tar.gz
+          mkdir wasi && tar xzf sysroot.tar.gz -C wasi --strip-components=1
+          echo "WASI_LIB=$PWD/wasi/lib/wasm32-wasi" >> "$GITHUB_ENV"
+      - name: Build the browser engine
+        run: tools/build_wasm.sh
+      - name: Smoke test
+        run: node tools/wasm_smoke.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

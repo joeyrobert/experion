@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experion, a chess engine in Crystal</title>
+  <meta name="description" content="Experion is a UCI chess engine written in Crystal with an NNUE evaluation trained from scratch. It beats Fruit 2.1 and Crafty 25.2 in local matches, and you can play it in your browser.">
+  <meta property="og:title" content="Experion, a chess engine in Crystal">
+  <meta property="og:description" content="A UCI chess engine with an NNUE trained from scratch. Play it in your browser or download it for Linux, macOS and Windows.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <style>.board-preview i { font-style: normal; }</style>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="./"><span class="knight">&#9822;&#65038;</span> Experion</a>
+      <nav class="site">
+        <a class="current" href="./">About</a>
+        <a href="#download">Download</a>
+        <a href="play/">Play</a>
+        <a href="https://github.com/joeyrobert/experion">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>A chess engine written in <span class="accent">Crystal</span>, with a neural network evaluation.</h1>
+        <p class="lead">Experion is a UCI engine with an NNUE evaluation trained from scratch on 142 million
+          positions from CCRL games. It beats Fruit 2.1 and Crafty 25.2 in local matches, ships as a single
+          self-contained executable, and runs in your browser.</p>
+        <div class="cta">
+          <a class="btn primary" href="play/">Play against it</a>
+          <a class="btn" href="#download">Download</a>
+          <a class="btn" href="https://github.com/joeyrobert/experion">Source on GitHub</a>
+        </div>
+      </div>
+      <div class="art"><div class="board-preview" aria-hidden="true"><span class="l"><i class="b">♜︎</i></span><span class="d"></span><span class="l"><i class="b">♝︎</i></span><span class="d"><i class="b">♛︎</i></span><span class="l"></span><span class="d"><i class="b">♜︎</i></span><span class="l"><i class="b">♚︎</i></span><span class="d"></span><span class="d"><i class="b">♟︎</i></span><span class="l"><i class="b">♟︎</i></span><span class="d"></span><span class="l"></span><span class="d"><i class="b">♝︎</i></span><span class="l"><i class="b">♟︎</i></span><span class="d"><i class="b">♟︎</i></span><span class="l"><i class="b">♟︎</i></span><span class="l"></span><span class="d"></span><span class="l"><i class="b">♞︎</i></span><span class="d"></span><span class="l"><i class="b">♟︎</i></span><span class="d"><i class="b">♞︎</i></span><span class="l"></span><span class="d"></span><span class="d"></span><span class="l"></span><span class="d"></span><span class="l"><i class="b">♟︎</i></span><span class="d"></span><span class="l"></span><span class="d"></span><span class="l"></span><span class="l"></span><span class="d"></span><span class="l"><i class="w">♟︎</i></span><span class="d"><i class="w">♟︎</i></span><span class="l"></span><span class="d"></span><span class="l"></span><span class="d"></span><span class="d"></span><span class="l"></span><span class="d"><i class="w">♞︎</i></span><span class="l"></span><span class="d"><i class="w">♟︎</i></span><span class="l"><i class="w">♞︎</i></span><span class="d"></span><span class="l"></span><span class="l"><i class="w">♟︎</i></span><span class="d"><i class="w">♟︎</i></span><span class="l"></span><span class="d"></span><span class="l"><i class="w">♝︎</i></span><span class="d"><i class="w">♟︎</i></span><span class="l"><i class="w">♟︎</i></span><span class="d"><i class="w">♟︎</i></span><span class="d"><i class="w">♜︎</i></span><span class="l"></span><span class="d"><i class="w">♝︎</i></span><span class="l"><i class="w">♛︎</i></span><span class="d"></span><span class="l"><i class="w">♜︎</i></span><span class="d"><i class="w">♚︎</i></span><span class="l"></span></div></div>
+    </section>
+
+    <section class="block" id="strength">
+      <h2>Strength</h2>
+      <p>Head-to-head matches with fastchess at 10+0.1, 100 games each, using the release binary as shipped.</p>
+      <table class="results">
+        <thead><tr><th>Opponent</th><th>Result</th><th>Score</th><th>Elo</th></tr></thead>
+        <tbody>
+          <tr><td>Fruit 2.1</td><td class="num">69&ndash;17&ndash;14</td><td class="num">76%</td><td class="num">+200 &plusmn; 74</td></tr>
+          <tr><td>Crafty 25.2</td><td class="num">58&ndash;32&ndash;10</td><td class="num">63%</td><td class="num">+92 &plusmn; 68</td></tr>
+        </tbody>
+      </table>
+      <p class="fine">Experion ran on 4 threads; both opponents ran on one, at their default settings, and Crafty had its own
+        clock through an XBoard bridge. Intervals are 95%. These are local head-to-head numbers, not rating-list ratings.
+        The browser version runs on one thread, so it plays weaker than these figures.</p>
+    </section>
+
+    <section class="block">
+      <h2>How it works</h2>
+      <p>Everything is written in Crystal, including the network inference. The training pipeline is Python and PyTorch.</p>
+      <div class="cards">
+        <div class="card"><h3>NNUE evaluation</h3><p>768 piece-square inputs across 8 mirrored king buckets feed 256 SCReLU units per side, with output
+          buckets by piece count and a learned material lane. Accumulators update incrementally, and a per-bucket
+          cache keeps king moves cheap.</p></div>
+        <div class="card"><h3>Search</h3><p>Iterative-deepening PVS with a transposition table, null-move pruning, late-move reductions, reverse
+          futility, SEE-pruned quiescence, history heuristics and lazy SMP. Features that measured as losses were removed.</p></div>
+        <div class="card"><h3>Trained from CCRL games</h3><p>The extractor detects each game's score convention, deduplicates positions and keeps quiet ones.
+          One consumer GPU trains the net in about half an hour. The full pipeline is in the repository.</p></div>
+        <div class="card"><h3>Runs anywhere</h3><p>Static Linux binary, macOS for Apple silicon and Intel, Windows, and a WebAssembly build for this
+          site. The network is embedded, so there is nothing else to install.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="download">
+      <h2>Download</h2>
+      <p id="dl-lead">Prebuilt executables are attached to each release. Point any UCI chess GUI at the file.</p>
+      <div class="downloads" id="dl-list">
+        <a class="dl" href="https://github.com/joeyrobert/experion/releases/latest"><strong>Latest release</strong><span>Linux, macOS and Windows on GitHub</span></a>
+      </div>
+      <p class="fine">Or build from source with <code>shards build --release</code> (Crystal 1.21 or newer).</p>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">
+      <span>Experion is MIT licensed. Made by <a href="https://joeyrobert.org">Joey Robert</a>.</span>
+      <span><a href="https://github.com/joeyrobert/experion">GitHub</a> &middot; <a href="https://github.com/joeyrobert/experion/blob/main/docs/TRAINING.md">Training notes</a> &middot; <a href="https://github.com/joeyrobert/experion/releases">Releases</a></span>
+    </div>
+  </footer>
+
+  <script>
+    // Fill the download list from the latest GitHub release; the static link above is the fallback.
+    (function () {
+      var names = [
+        [/linux-x86_64/, 'Linux', 'x86-64, static'],
+        [/macos-arm64/, 'macOS', 'Apple silicon'],
+        [/macos-x86_64/, 'macOS', 'Intel'],
+        [/windows-x86_64/, 'Windows', 'x86-64']
+      ];
+      fetch('https://api.github.com/repos/joeyrobert/experion/releases/latest')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (rel) {
+          var list = document.getElementById('dl-list');
+          var out = [];
+          names.forEach(function (n) {
+            (rel.assets || []).forEach(function (a) {
+              if (n[0].test(a.name)) {
+                out.push('<a class="dl" href="' + a.browser_download_url + '"><strong>' + n[1] + '</strong><span>' + n[2] + ' &middot; ' +
+                  (a.size / 1048576).toFixed(1) + ' MB &middot; ' + rel.tag_name + '</span></a>');
+              }
+            });
+          });
+          if (out.length) list.innerHTML = out.join('');
+        })
+        .catch(function () {});
+    })();
+  </script>
+</body>
+</html>
