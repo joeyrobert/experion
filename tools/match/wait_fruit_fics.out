@@ -1,0 +1,64 @@
+fruit-match + FICS 2025 waiter starting
+extract Fruit match PGNs
+games=50 kept=3381 skipped=401
+games=100 kept=7270 skipped=798
+games=150 kept=11320 skipped=1229
+games=200 kept=15428 skipped=1622
+fruit-match + FICS 2025 waiter starting
+extract Fruit match PGNs
+games=50 kept=3381 skipped=401
+games=100 kept=7270 skipped=798
+games=150 kept=11320 skipped=1229
+games=200 kept=15428 skipped=1622
+games=250 kept=19623 skipped=2039
+games=300 kept=23686 skipped=2454
+games=350 kept=27018 skipped=2805
+games=400 kept=30719 skipped=3176
+games=450 kept=34879 skipped=3576
+games=500 kept=39236 skipped=3961
+games=550 kept=43577 skipped=4321
+games=600 kept=47633 skipped=4721
+games=650 kept=51854 skipped=5103
+games=700 kept=55777 skipped=5437
+games=750 kept=60125 skipped=5846
+games=800 kept=64027 skipped=6237
+games=850 kept=68574 skipped=6651
+games=900 kept=72482 skipped=7052
+{'games': 928, 'kept': 74668, 'skipped': 7278, 'out': '/Users/joey/Repos/experion/datasets/fruit_match.txt'}
+pack fruit_match
+{'source': '/Users/joey/Repos/experion/datasets/fruit_match.txt', 'positions': {'train': 69466, 'val': 3697}, 'kept': 73163, 'skipped': 1505, 'score_pov': 'white', 'labels': 'self-play search score + game WDL', 'split': 'position hash, 5% val'}
+train mix25 freeze-linear 4ep on mix25_fruitpgn lr=0.0003 wdl=0.45
+train mix25_fruitpgn rc=0
+material best.bin [304, 533]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fruitpgn_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_fruitpgn_h25.bin [300, 528]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fruitpgn_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_fruitpgn_h15.bin [299, 526]
+material enn4_mix25_fruitpgn.bin [304, 533]
+20g 10+0.1 vs fruit net=enn4_mix25_fruitpgn_h25.bin stem=mix25_fruitpgn_h25_fruit
+detached pid=41695 pgid=41695 log=/Users/joey/Repos/experion/tools/match/mix25_fruitpgn_h25_fruit.log
+abort mix25_fruitpgn_h25_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 11 - 1  [0.042] 12
+mix25_fruitpgn_h25_fruit 0-11-1 = 4.2% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_fruitpgn_h15.bin stem=mix25_fruitpgn_h15_fruit
+detached pid=42323 pgid=42323 log=/Users/joey/Repos/experion/tools/match/mix25_fruitpgn_h15_fruit.log
+abort mix25_fruitpgn_h15_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 1  [0.115] 13
+mix25_fruitpgn_h15_fruit 1-11-1 = 11.5% / 13g
+20g 10+0.1 vs fruit net=enn4_mix25_fruitpgn.bin stem=mix25_fruitpgn_fruit
+detached pid=44847 pgid=44847 log=/Users/joey/Repos/experion/tools/match/mix25_fruitpgn_fruit.log
+abort mix25_fruitpgn_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 0  [0.083] 12
+mix25_fruitpgn_fruit 1-11-0 = 8.3% / 12g
+pack FICS 2025 1.5M quiets, mix25 eval labels
+train mix25 freeze-linear 2ep on mix25_fics25 lr=0.00012 wdl=0.30
+train mix25_fics25 rc=0
+material best.bin [296, 523]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fics25_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_fics25_h25.bin [298, 525]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fics25_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_fics25_h15.bin [299, 526]
+material enn4_mix25_fics25.bin [296, 523]
+20g 10+0.1 vs fruit net=enn4_mix25_fics25_h25.bin stem=mix25_fics25_h25_fruit
+detached pid=47157 pgid=47157 log=/Users/joey/Repos/experion/tools/match/mix25_fics25_h25_fruit.log
+abort mix25_fics25_h25_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 11 - 1  [0.042] 12
+mix25_fics25_h25_fruit 0-11-1 = 4.2% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_fics25_h15.bin stem=mix25_fics25_h15_fruit
+detached pid=48719 pgid=48719 log=/Users/joey/Repos/experion/tools/match/mix25_fics25_h15_fruit.log

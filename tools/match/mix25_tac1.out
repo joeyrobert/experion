@@ -1,0 +1,7 @@
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+
+=== restart detached ===
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.025120156411504745, "val_loss": 0.025701321882009506, "seconds": 7.31}

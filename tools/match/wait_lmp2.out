@@ -1,0 +1,27 @@
+wait_lmp2: LMP 12/18/24/32 vs Fruit on mix25
+shards build --release
+build rc=0
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_lmp2_fruit
+detached pid=71542 pgid=71542 log=/Users/joey/Repos/experion/tools/match/mix25_lmp2_fruit.log
+mix25_lmp2_fruit 2-15-3 = 17.5% / 20g
+LMP2 failed Fruit; revert
+reverted LMP to 8/12/18/24
+shards build --release
+build rc=0
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down

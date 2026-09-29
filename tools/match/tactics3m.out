@@ -1,0 +1,7 @@
+=== 3m freeze-linear 2026-09-17 09:30:33 ===
+{"resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.025814825550365447, "val_loss": 0.026323273212909698, "seconds": 8.04}
+{"epoch": 2, "train_loss": 0.025393582262372972, "val_loss": 0.0261323675652345, "seconds": 7.36}
+{"epoch": 3, "train_loss": 0.025236930085492135, "val_loss": 0.026046406915187836, "seconds": 7.44}
+{"epoch": 4, "train_loss": 0.025163361595749854, "val_loss": 0.026016788639028867, "seconds": 7.97}

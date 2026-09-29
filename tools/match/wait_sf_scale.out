@@ -1,0 +1,38 @@
+wait_sf_scale: 600k more CCRL FENs + SF d8
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+extract 600k CCRL skip 4e9 d12 q+t
+SF-label 600k d8
+wait_sf_scale: 600k more CCRL FENs + SF d8
+SF-label 600k d8 (2× stockfish)
+wait_sf_scale: 600k more CCRL FENs + SF d8
+SF-label 600k d8 (4× stockfish)
+concat 4 parts
+merge old 150k + new 600k
+pack 750k
+{'source': '/Users/joey/Repos/experion/datasets/ccrl_sf19_750k.txt', 'positions': {'train': 712241, 'val': 37531}, 'kept': 749772, 'skipped': 228, 'score_pov': 'white', 'labels': 'self-play search score + game WDL', 'split': 'position hash, 5% val'}
+train mix25 freeze-linear 8ep on mix25_sf750 lr=0.0005
+train mix25_sf750 rc=0
+material best.bin [263, 502]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf750_h10.bin', 't': 0.1, 'all': False}
+material enn4_mix25_sf750_h10.bin [295, 523]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf750_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_sf750_h15.bin [294, 521]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf750_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_sf750_h25.bin [289, 518]
+20g 10+0.1 vs fruit net=enn4_mix25_sf750_h10.bin stem=mix25_sf750_h10_fruit
+detached pid=63841 pgid=63841 log=/Users/joey/Repos/experion/tools/match/mix25_sf750_h10_fruit.log
+mix25_sf750_h10_fruit 3-15-2 = 20.0% / 20g
+20g 10+0.1 vs crafty net=enn4_mix25_sf750_h10.bin stem=mix25_sf750_h10_crafty
+detached pid=64275 pgid=64275 log=/Users/joey/Repos/experion/tools/match/mix25_sf750_h10_crafty.log

@@ -1,0 +1,11 @@
+=== heads-only then w256 2026-09-17 18:15:50 ===
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+{"freeze_ft": true}
+{"epoch": 1, "train_loss": 0.03754932165593931, "val_loss": 0.037869797980319975, "seconds": 28.07}
+{"epoch": 2, "train_loss": 0.037385547649454565, "val_loss": 0.03776277012249243, "seconds": 28.07}
+{"epoch": 3, "train_loss": 0.0373149910292493, "val_loss": 0.03773094126615493, "seconds": 27.64}
+{"resume": "/Users/joey/Repos/experion/nets/enn4_ccrl12m.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.03794862800589017, "val_loss": 0.038122074182233956, "seconds": 49.06}
+{"epoch": 2, "train_loss": 0.03754990075525607, "val_loss": 0.03797135803794254, "seconds": 47.58}

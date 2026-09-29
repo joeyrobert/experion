@@ -1,0 +1,16 @@
+=== matchbook pipeline 2026-09-17 11:18:44 ===
+matchbook self-play → local MPS freeze-linear
+waiting for selfplay pid 56515
+selfplay process exited
+packing /Users/joey/Repos/experion/datasets/selfplay_matchbook.txt -> /Users/joey/Repos/experion/datasets/selfplay_matchbook_npy
++ python3 /Users/joey/Repos/experion/tools/prepare_selfplay.py /Users/joey/Repos/experion/datasets/selfplay_matchbook.txt /Users/joey/Repos/experion/datasets/selfplay_matchbook_npy
++ python3 /Users/joey/Repos/experion/tools/mix_nnue_npy.py /Users/joey/Repos/experion/datasets/selfplay_w192_npy /Users/joey/Repos/experion/datasets/selfplay_matchbook_npy /Users/joey/Repos/experion/datasets/mixed_matchbook --upsample-rest 8
++ python3 /Users/joey/Repos/experion/tools/train_nnue_v4.py /Users/joey/Repos/experion/datasets/mixed_matchbook /Users/joey/Repos/experion/datasets/enn4_matchbook --width 192 --epochs 4 --lr 0.0004 --batch 4096 --device mps --resume /Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin --freeze-linear
+ft material {'P': 99.740234375, 'N': 319.908203125, 'B': 329.9140625, 'R': 499.689453125, 'Q': 899.90625, 'K': -0.107421875}
+material collapsed or exploded; not shipping this net
+
+=== match-only 2026-09-17 12:06:41 ===
+matching enn4_matchbook.bin Fruit then Crafty (fair STM clocks)
+20g 10+0.1 vs fruit net=enn4_matchbook.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 fruit matchbook_fruit
+detached pid=59144 pgid=59144 log=/Users/joey/Repos/experion/tools/match/matchbook_fruit.log

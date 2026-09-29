@@ -1,0 +1,25 @@
+wait_passer: after SE, passer overlay then uflin
+waiting for SE canary se5 0-3-0 = 0.0%/3g
+wait_passer: uflin train during SE, then passer overlay
+train mix25 unfrozen-linear 3ep lr=1e-4 on disagreements
+train mix25_uflin rc=0
+material best.bin [298, 528]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_uflin_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_uflin_h15.bin [298, 525]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_uflin_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_uflin_h25.bin [299, 526]
+waiting for SE canary se5 0-4-0 = 0.0%/4g
+waiting for SE canary se5 0-9-0 = 0.0%/9g
+applied passer overlay
+shards build --release
+build rc=0
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_passer_fruit
+detached pid=76959 pgid=76959 log=/Users/joey/Repos/experion/tools/match/mix25_passer_fruit.log
+mix25_passer_fruit 1-14-5 = 17.5% / 20g
+passer failed Fruit; revert
+reverted passer overlay
+shards build --release
+build rc=0
+unfrozen-linear blends vs Fruit
+20g 10+0.1 vs fruit net=enn4_mix25_uflin_h25.bin stem=mix25_uflin_h25_fruit
+detached pid=77335 pgid=77335 log=/Users/joey/Repos/experion/tools/match/mix25_uflin_h25_fruit.log

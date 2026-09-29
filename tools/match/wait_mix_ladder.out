@@ -1,0 +1,29 @@
+=== mix25 ladder 2026-09-17 09:28:13 ===
+mix25 ladder starting /Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin
+40g 10+0.1 vs sungorus net=enn4_tactics_mix25.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 sungorus mix25_sungorus
+detached pid=37342 pgid=37342 log=/Users/joey/Repos/experion/tools/match/mix25_sungorus.log
+
+=== tactics3m ladder 2026-09-17 09:31:30 ===
+mix25 ladder starting /Users/joey/Repos/experion/nets/enn4_tactics3m.bin
+40g 10+0.1 vs sungorus net=enn4_tactics3m.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 sungorus tac3m_sungorus
+detached pid=37925 pgid=37925 log=/Users/joey/Repos/experion/tools/match/tac3m_sungorus.log
+
+=== tactics3m ladder 2026-09-17 09:32:06 ===
+tactics3m ladder starting /Users/joey/Repos/experion/nets/enn4_tactics3m.bin
+40g 10+0.1 vs sungorus net=enn4_tactics3m.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 sungorus tac3m_sungorus
+detached pid=38077 pgid=38077 log=/Users/joey/Repos/experion/tools/match/tac3m_sungorus.log
+
+=== mix25 crafty/fruit 2026-09-17 10:13:17 ===
+mix25 Crafty/Fruit ladder starting /Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin
+40g 10+0.1 vs crafty net=enn4_tactics_mix25.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 crafty mix25_crafty
+detached pid=44886 pgid=44886 log=/Users/joey/Repos/experion/tools/match/mix25_crafty.log
+Score of Experion vs Crafty252: 16 - 21 - 3  [0.438] 40
+40g 10+0.1 vs fruit net=enn4_tactics_mix25.bin
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 fruit mix25_fruit
+detached pid=49177 pgid=49177 log=/Users/joey/Repos/experion/tools/match/mix25_fruit.log
+Score of Experion vs Fruit21_CCRL2694: 8 - 31 - 1  [0.213] 40
+mix25 crafty/fruit ladder done

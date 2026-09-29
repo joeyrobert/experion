@@ -1,0 +1,42 @@
+Crafty-class ladder, enn4_w192all blend 100
+20g 10+0.1 vs fruit
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 fruit class_fruit
+detached pid=75728 pgid=75728 log=/Users/joey/Repos/experion/tools/match/class_fruit.log
+Score of Experion vs Fruit21_CCRL2694: 2 - 18 - 0  [0.100] 20
+20g 10+0.1 vs gnuchess
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 gnuchess class_gnuchess
+detached pid=3558 pgid=3558 log=/Users/joey/Repos/experion/tools/match/class_gnuchess.log
+Score of Experion vs GNUChess630_CCRL2823: 3 - 16 - 1  [0.175] 20
+20g 10+0.1 vs glaurung
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 glaurung class_glaurung
+detached pid=9436 pgid=9436 log=/Users/joey/Repos/experion/tools/match/class_glaurung.log
+Score of Experion vs Glaurung22_CCRL2911: 20 - 0 - 0  [1.000] 20
+20g 10+0.1 vs vice
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 vice class_vice
+detached pid=22623 pgid=22623 log=/Users/joey/Repos/experion/tools/match/class_vice.log
+Score of Experion vs Vice11_CCRL1997: 16 - 4 - 0  [0.800] 20
+20g 10+0.1 vs bbc
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 bbc class_bbc
+detached pid=25622 pgid=25622 log=/Users/joey/Repos/experion/tools/match/class_bbc.log
+Score of Experion vs BBC12_ApproxCCRL2465: 15 - 3 - 2  [0.800] 20
+class ladder done
++ python3 /Users/joey/Repos/experion/tools/match/elo.py
+opponent                CCRL        W-L-D   score    ΔElo    ±95%  implied  note
+Vice 1.1                1997 16-4 -0    80.0%    +241     190     2238  ship net, 20g
+BBC 1.2                 2465 15-3 -2    80.0%    +241     190     2706  ship net, 20g
+Sungorus 1.4            2268 16-20-4    45.0%     -35     108     2233  hang canary, 40g
+Fruit 2.1               2694  2-18-0    10.0%    -382     254     2312  ship net, 20g
+GNU Chess 6.3.0         2823  3-16-1    17.5%    -269     200     2554  ship net, 20g
+Glaurung 2.2            2911 20-0 -0   100.0%    +999     nan     3910  ship net, 20g
+Crafty 25.2             3040 17-17-6    50.0%      +0     108     3040  ship net, 40g
+
+MLE vs all CCRL anchors: 2676  (loglik -182.8)
+MLE dropping Sungorus:   2823
+Residuals at all-anchor MLE (score − expected), percentage points:
+  Vice 1.1                -18.0 pp
+  BBC 1.2                  +2.9 pp
+  Sungorus 1.4            -46.3 pp
+  Fruit 2.1               -37.4 pp
+  GNU Chess 6.3.0         -12.5 pp
+  Glaurung 2.2            +79.5 pp
+  Crafty 25.2             +39.0 pp

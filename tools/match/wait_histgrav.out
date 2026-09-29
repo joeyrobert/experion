@@ -1,0 +1,27 @@
+wait_histgrav: gravity history vs Fruit on mix25
+shards build --release
+build rc=0
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_histgrav_fruit
+detached pid=75878 pgid=75878 log=/Users/joey/Repos/experion/tools/match/mix25_histgrav_fruit.log
+abort mix25_histgrav_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 10 - 2  [0.083] 12
+mix25_histgrav_fruit 0-10-2 = 8.3% / 12g
+histgrav failed Fruit; revert
+reverted history gravity
+shards build --release
+build rc=0
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
