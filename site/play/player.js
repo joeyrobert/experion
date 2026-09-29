@@ -69,13 +69,45 @@ function render() {
   renderEval();
   renderTags();
   renderControls();
+  renderResult();
+}
+
+// Big result banner over the board once the game is decided; render() hides it again after
+// Undo or New game because the game is no longer over.
+function renderResult() {
+  const el = $('result');
+  el.innerHTML = '';
+  if (!game.isGameOver() || engineError) { el.hidden = true; return; }
+  const title = document.createElement('div');
+  const sub = document.createElement('div');
+  title.className = 'result-title';
+  sub.className = 'result-sub';
+  if (game.isCheckmate()) {
+    const winner = game.turn() === 'w' ? 'b' : 'w';
+    const label = playerLabel(winner);
+    title.textContent = label === 'You' ? 'You win!' : label + ' wins';
+    title.classList.add('win');
+    sub.textContent = 'Checkmate \u00b7 ' + (winner === 'w' ? 'White' : 'Black') + ' delivered mate';
+  } else {
+    title.textContent = 'Draw';
+    sub.textContent = game.isStalemate() ? 'Stalemate'
+      : game.isThreefoldRepetition() ? 'Threefold repetition'
+      : game.isInsufficientMaterial() ? 'Insufficient material'
+      : 'Fifty-move rule';
+  }
+  el.append(title, sub);
+  el.hidden = false;
 }
 
 function renderTags() {
   const top = board.orientation === 'w' ? 'b' : 'w';
   const bottom = board.orientation;
   for (const [el, color] of [[$('tag-top'), top], [$('tag-bottom'), bottom]]) {
-    el.textContent = (color === 'w' ? '○ ' : '● ') + playerLabel(color);
+    el.innerHTML = '';
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch ' + (color === 'w' ? 'white' : 'black');
+    swatch.setAttribute('aria-label', color === 'w' ? 'White' : 'Black');
+    el.append(swatch, document.createTextNode(playerLabel(color)));
     el.classList.toggle('active', !game.isGameOver() && game.turn() === color);
   }
 }
@@ -83,7 +115,7 @@ function renderTags() {
 function renderControls() {
   const anyEngine = players.w !== 'human' || players.b !== 'human';
   $('pause').disabled = !anyEngine;
-  $('pause').textContent = paused ? 'Resume' : 'Pause';
+  $('pause').textContent = paused ? (game.history().length ? 'Resume' : 'Start') : 'Pause';
   $('pause').classList.toggle('active', paused);
   $('go').disabled = thinking;
 }
@@ -120,7 +152,7 @@ function renderStatus() {
   else if (game.isInsufficientMaterial()) { s.textContent = 'Draw: insufficient material.'; s.className = 'over'; }
   else if (game.isDraw()) { s.textContent = 'Draw by the fifty-move rule.'; s.className = 'over'; }
   else if (thinking) { s.textContent = nameOf(thinkingId) + ' is thinking…'; s.className = 'thinking'; }
-  else if (paused && players[side] !== 'human') s.textContent = 'Paused';
+  else if (paused && players[side] !== 'human') s.textContent = game.history().length ? 'Paused. Press Resume to continue.' : 'Ready. Press Start to begin.';
   else if (players[side] === 'human') s.textContent = (humanCount() === 2 ? who + ' to move' : 'Your move') + (game.inCheck() ? ' (check)' : '');
   else s.textContent = who + ' to move';
 }
@@ -246,6 +278,7 @@ async function humanMove(from, to) {
   let promotion;
   if (piece && piece.type === 'p' && (to[1] === '8' || to[1] === '1')) promotion = await choosePromotion(piece.color);
   try { game.move({ from, to, promotion }); } catch { render(); return; }
+  paused = false;
   render();
   afterMove();
 }
@@ -286,13 +319,15 @@ function newGame(fen) {
   afterMove();
 }
 
+// Changing who plays only changes the setup. It never starts a search: if an engine is now to
+// move, the game waits until the user resumes, plays a move or starts a new game.
 function playersChanged() {
   cancelSearch();
   engineError = null;
   readPlayers();
   chooseOrientation();
+  if (!game.isGameOver() && players[game.turn()] !== 'human') paused = true;
   render();
-  afterMove();
 }
 
 function undo() {
@@ -405,3 +440,4 @@ if (query.has('bridge')) {
 }
 
 newGame();
+if (players[game.turn()] !== 'human') { paused = true; render(); } // a link never starts play by itself
