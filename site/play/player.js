@@ -69,6 +69,34 @@ function render() {
   renderEval();
   renderTags();
   renderControls();
+  renderResult();
+}
+
+// Big result banner over the board once the game is decided; render() hides it again after
+// Undo or New game because the game is no longer over.
+function renderResult() {
+  const el = $('result');
+  el.innerHTML = '';
+  if (!game.isGameOver() || engineError) { el.hidden = true; return; }
+  const title = document.createElement('div');
+  const sub = document.createElement('div');
+  title.className = 'result-title';
+  sub.className = 'result-sub';
+  if (game.isCheckmate()) {
+    const winner = game.turn() === 'w' ? 'b' : 'w';
+    const label = playerLabel(winner);
+    title.textContent = label === 'You' ? 'You win!' : label + ' wins';
+    title.classList.add('win');
+    sub.textContent = 'Checkmate \u00b7 ' + (winner === 'w' ? 'White' : 'Black') + ' delivered mate';
+  } else {
+    title.textContent = 'Draw';
+    sub.textContent = game.isStalemate() ? 'Stalemate'
+      : game.isThreefoldRepetition() ? 'Threefold repetition'
+      : game.isInsufficientMaterial() ? 'Insufficient material'
+      : 'Fifty-move rule';
+  }
+  el.append(title, sub);
+  el.hidden = false;
 }
 
 function renderTags() {
