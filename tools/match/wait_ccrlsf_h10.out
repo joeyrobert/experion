@@ -1,9 +1,0 @@
-ccrlsf h10 then h15 vs Fruit
-material enn4_mix25_ccrlsf_h10.bin [296, 525]
-20g 10+0.1 vs fruit net=enn4_mix25_ccrlsf_h10.bin stem=mix25_ccrlsf_h10_fruit
-detached pid=62575 pgid=62575 log=/Users/joey/Repos/experion/tools/match/mix25_ccrlsf_h10_fruit.log
-abort mix25_ccrlsf_h10_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 11 - 1  [0.042] 12
-mix25_ccrlsf_h10_fruit 0-11-1 = 4.2% / 12g
-material enn4_mix25_ccrlsf_h15.bin [294, 523]
-20g 10+0.1 vs fruit net=enn4_mix25_ccrlsf_h15.bin stem=mix25_ccrlsf_h15_fruit
-detached pid=62799 pgid=62799 log=/Users/joey/Repos/experion/tools/match/mix25_ccrlsf_h15_fruit.log

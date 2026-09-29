@@ -1,4 +1,0 @@
-{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
-{"freeze_linear": true}
-{"epoch": 1, "train_loss": 0.028370324322789197, "val_loss": 0.027894801840468275, "seconds": 18.47}
-{"epoch": 2, "train_loss": 0.02766329333781606, "val_loss": 0.02766179859685948, "seconds": 18.24}

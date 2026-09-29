@@ -1,3 +1,0 @@
-{"split": "train", "kept": 800000, "src": 15103391}
-{"split": "val", "kept": 40000, "src": 846609}
-{"out": "/Users/joey/Repos/experion/datasets/ccrl_mix25_disagree_npy", "positions": {"train": 800000, "val": 40000}}

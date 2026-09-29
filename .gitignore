@@ -47,3 +47,13 @@ nnue*.bin*
 # only the release net is tracked
 /nets/*
 !/nets/experion.bin
+
+# match tooling scratch: only the scripts below are tracked
+/tools/match/*
+!/tools/match/ab.sh
+!/tools/match/run_match.sh
+!/tools/match/sprt.sh
+!/tools/match/uci_bridge.cr
+!/tools/match/benchmark.py
+!/tools/match/openings.pgn
+!/tools/match/openings.epd

@@ -1,3 +1,0 @@
-illegal san: 'Kf4' in rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 while parsing <Game at 0x10a12b400 ('?' vs. '?', '????.??.??' at '?')>
-games=1000 kept=118812
-{'games': 1659, 'kept': 200000, 'skipped': 0, 'out': '/Users/joey/Repos/experion/datasets/ccrl_sf_skip3e9.txt'}
