@@ -42,11 +42,6 @@
 # The accumulator lives in the searcher's stack (one 2*H row per ply); make
 # sites update it incrementally via `apply_delta`.
 
-@[Link("c")]
-lib LibMemory
-  fun memcpy(dest : Void*, src : Void*, n : LibC::SizeT) : Void*
-end
-
 module Experion
   module Nnue
     extend self
@@ -105,6 +100,13 @@ module Experion
       @@w1.not_nil!
     end
 
+    # Net compiled into the binary so a release executable is self-contained.
+    EMBEDDED_NET = {{ read_file("#{__DIR__}/../../nets/experion.bin") }}
+
+    def self.load_embedded : Bool
+      load_data(EMBEDDED_NET)
+    end
+
     def self.load(path : String) : Bool
       begin
         data = File.read(path)
@@ -112,6 +114,14 @@ module Experion
         @@enabled = false
         return false
       end
+      load_data(data)
+    end
+
+    def self.load_data(data : String) : Bool
+      @@v4 = false
+      @@v5 = false
+      @@has_mat5 = false
+      @@king_buckets = 1
       return load_v4(data) if data.size >= 8 && data[0, 4] == "ENN4"
       return load_v5(data) if data.size >= 20 && data[0, 4] == "ENN5"
       return false unless data.size > 24 && data[0, 4] == "ENN3"
@@ -137,22 +147,22 @@ module Experion
       @@w1 = Pointer(Int16).malloc(w1_rows * hh)
       bytes_w1 = Bytes.new(w1_rows * hh * 2)
       h.read_fully(bytes_w1)
-      LibMemory.memcpy(@@w1.not_nil!.as(Void*), bytes_w1.to_unsafe.as(Void*), w1_rows * hh * 2)
+      @@w1.not_nil!.as(UInt8*).copy_from(bytes_w1.to_unsafe, w1_rows * hh * 2)
 
       @@wh = Pointer(Int16).malloc(hh * hid)
       bytes_wh = Bytes.new(hh * hid * 2)
       h.read_fully(bytes_wh)
-      LibMemory.memcpy(@@wh.not_nil!.as(Void*), bytes_wh.to_unsafe.as(Void*), hh * hid * 2)
+      @@wh.not_nil!.as(UInt8*).copy_from(bytes_wh.to_unsafe, hh * hid * 2)
 
       @@bh = Pointer(Int16).malloc(hid)
       bytes_bh = Bytes.new(hid * 2)
       h.read_fully(bytes_bh)
-      LibMemory.memcpy(@@bh.not_nil!.as(Void*), bytes_bh.to_unsafe.as(Void*), hid * 2)
+      @@bh.not_nil!.as(UInt8*).copy_from(bytes_bh.to_unsafe, hid * 2)
 
       @@w2 = Pointer(Int16).malloc(2 * hid)
       bytes_w2 = Bytes.new(2 * hid * 2)
       h.read_fully(bytes_w2)
-      LibMemory.memcpy(@@w2.not_nil!.as(Void*), bytes_w2.to_unsafe.as(Void*), 2 * hid * 2)
+      @@w2.not_nil!.as(UInt8*).copy_from(bytes_w2.to_unsafe, 2 * hid * 2)
 
       @@enabled = true
       @@v4 = false
@@ -198,13 +208,13 @@ module Experion
       expected = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4 + (has_mat ? 10 : 0)
       return false unless data.bytesize == expected
       @@w1 = Pointer(Int16).malloc(n_ft)
-      LibMemory.memcpy(@@w1.not_nil!.as(Void*), (sl.to_unsafe + 20).as(Void*), n_ft * 2)
+      @@w1.not_nil!.as(UInt8*).copy_from(sl.to_unsafe + 20, n_ft * 2)
       @@bias = Pointer(Int16).malloc(h)
-      LibMemory.memcpy(@@bias.not_nil!.as(Void*), (sl.to_unsafe + 20 + n_ft * 2).as(Void*), h * 2)
+      @@bias.not_nil!.as(UInt8*).copy_from(sl.to_unsafe + 20 + n_ft * 2, h * 2)
       @@w2 = Pointer(Int16).malloc(ob * 2 * h)
-      LibMemory.memcpy(@@w2.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h) * 2).as(Void*), ob * 2 * h * 2)
+      @@w2.not_nil!.as(UInt8*).copy_from(sl.to_unsafe + 20 + (n_ft + h) * 2, ob * 2 * h * 2)
       @@out_b5 = Pointer(Int32).malloc(ob)
-      LibMemory.memcpy(@@out_b5.not_nil!.as(Void*), (sl.to_unsafe + 20 + (n_ft + h + ob * 2 * h) * 2).as(Void*), ob * 4)
+      @@out_b5.not_nil!.as(UInt8*).copy_from(sl.to_unsafe + 20 + (n_ft + h + ob * 2 * h) * 2, ob * 4)
       @@has_mat5 = has_mat
       if has_mat
         moff = 20 + (n_ft + h + ob * 2 * h) * 2 + ob * 4

@@ -16,16 +16,21 @@ require "./experion/nnue"
 require "./experion/search"
 require "./experion/san"
 require "./experion/epdtest"
+{% unless flag?(:win32) %}
 require "./experion/gendata"
+{% end %}
 
 module Experion
   def self.init_engine : Nil
     Tables.init
     Zobrist.init
     Psqt.init
-    # NNUE is opt-in: set EXPERION_NNUE=/path/to/net.bin to enable
+    # The release net is embedded; EXPERION_NNUE=/path/to/net.bin overrides it
+    # (an empty value forces the classical evaluator).
     if p = ENV["EXPERION_NNUE"]?
-      Nnue.load(p)
+      Nnue.load(p) unless p.empty?
+    else
+      Nnue.load_embedded
     end
     # optional override for tools (like epdtest) that don't go through the
     # UCI "setoption EvalBlend" path

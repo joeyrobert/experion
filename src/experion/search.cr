@@ -1358,7 +1358,11 @@ module Experion
   module Raw
     def self.write_stdout(s : String) : Nil
       slice = s.to_slice
-      LibC.write(1, slice.to_unsafe.as(Void*), slice.size)
+      {% if flag?(:win32) %}
+        LibC._write(1, slice.to_unsafe, slice.size.to_u32)
+      {% else %}
+        LibC.write(1, slice.to_unsafe.as(Void*), slice.size)
+      {% end %}
     end
   end
 end

@@ -3,8 +3,10 @@
 require "./experion"
 require "./experion/bench"
 require "./experion/uci"
+{% unless flag?(:win32) %}
 require "./experion/genficsdata"
 require "./experion/scorefics"
+{% end %}
 
 module Experion
   # Runs a single fixed-movetime search and returns {completed_depth, nodes, ms}.
@@ -21,6 +23,55 @@ module Experion
     dt = (Time.instant - t0).total_milliseconds.to_i64!
     {s.last_completed_depth, s.nodes, dt}
   end
+
+  {% unless flag?(:win32) %}
+  # Training-data tooling (POSIX file APIs); not part of the Windows build.
+  def self.dev_tool(cmd : String?, args : Array(String)) : Bool
+    case cmd
+    when "gendata"
+      games = args[1]?.try(&.to_i?) || 500
+      ms = (args[2]?.try(&.to_i?) || 200).to_i64!
+      path = args[3]? || "training.txt"
+      thr = args[4]?.try(&.to_i?) || 1
+      GenData.run(games, ms, path, thr)
+    when "gendata-scored"
+      n = args[1]?.try(&.to_i?) || 400000
+      d = args[2]?.try(&.to_i?) || 10
+      path = args[3]? || "training_scored.txt"
+      thr = args[4]?.try(&.to_i?) || 8
+      GenData.run_scored(n, d, path, thr)
+    when "gendata-classical"
+      n = args[1]?.try(&.to_i?) || 200000
+      path = args[2]? || "training_classical.txt"
+      thr = args[3]?.try(&.to_i?) || 8
+      GenData.run_classical(n, path, thr)
+    when "gendata-selfplay"
+      games = args[1]?.try(&.to_i?) || 2000
+      depth = args[2]?.try(&.to_i?) || 8
+      path = args[3]? || "training_selfplay.txt"
+      thr = args[4]?.try(&.to_i?) || 8
+      GenData.run_selfplay(games, depth, path, thr)
+    when "genfics-data"
+      in_path = args[1]? || raise "missing input pgn path"
+      out_path = args[2]? || "training_fics.txt"
+      target = args[3]?.try(&.to_i?) || 100000
+      min_ply = args[4]?.try(&.to_i?) || 16
+      max_ply = args[5]?.try(&.to_i?) || 120
+      GenFicsData.run(in_path, out_path, target, min_ply, max_ply)
+    when "score-fics"
+      in_path = args[1]? || raise "missing input txt path"
+      out_path = args[2]? || "training_fics_scored.txt"
+      ScoreFics.run(in_path, out_path)
+    else
+      return false
+    end
+    true
+  end
+  {% else %}
+  def self.dev_tool(cmd : String?, args : Array(String)) : Bool
+    false
+  end
+  {% end %}
 
   def self.main(args : Array(String)) : Int32
     init_engine
@@ -71,40 +122,6 @@ module Experion
       ms = args[2]?.try(&.to_i?) || 200
       maxn = args[3]?.try(&.to_i?) || 0
       EpdTest.run(path, ms.to_i64!, maxn)
-    when "gendata"
-      games = args[1]?.try(&.to_i?) || 500
-      ms = (args[2]?.try(&.to_i?) || 200).to_i64!
-      path = args[3]? || "training.txt"
-      thr = args[4]?.try(&.to_i?) || 1
-      GenData.run(games, ms, path, thr)
-    when "gendata-scored"
-      n = args[1]?.try(&.to_i?) || 400000
-      d = args[2]?.try(&.to_i?) || 10
-      path = args[3]? || "training_scored.txt"
-      thr = args[4]?.try(&.to_i?) || 8
-      GenData.run_scored(n, d, path, thr)
-    when "gendata-classical"
-      n = args[1]?.try(&.to_i?) || 200000
-      path = args[2]? || "training_classical.txt"
-      thr = args[3]?.try(&.to_i?) || 8
-      GenData.run_classical(n, path, thr)
-    when "gendata-selfplay"
-      games = args[1]?.try(&.to_i?) || 2000
-      depth = args[2]?.try(&.to_i?) || 8
-      path = args[3]? || "training_selfplay.txt"
-      thr = args[4]?.try(&.to_i?) || 8
-      GenData.run_selfplay(games, depth, path, thr)
-    when "genfics-data"
-      in_path = args[1]? || raise "missing input pgn path"
-      out_path = args[2]? || "training_fics.txt"
-      target = args[3]?.try(&.to_i?) || 100000
-      min_ply = args[4]?.try(&.to_i?) || 16
-      max_ply = args[5]?.try(&.to_i?) || 120
-      GenFicsData.run(in_path, out_path, target, min_ply, max_ply)
-    when "score-fics"
-      in_path = args[1]? || raise "missing input txt path"
-      out_path = args[2]? || "training_fics_scored.txt"
-      ScoreFics.run(in_path, out_path)
     when "smpdiag"
       # Phase 1 SMP diagnostic: measure the PRIMARY thread's real nodes/
       # depth/nps for a fixed movetime, once solo and once with N-1 worker
@@ -152,7 +169,7 @@ module Experion
       puts "bestmove #{Moves.mv_uci(best)}"
     else
       # engines are expected to speak UCI on bare invocation
-      Uci.run
+      Uci.run unless dev_tool(cmd, args)
     end
     0
   end

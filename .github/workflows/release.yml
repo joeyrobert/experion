@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+          - name: macos-arm64
+            os: macos-latest
+          - name: macos-x86_64
+            os: macos-15-intel
+          - name: windows-x86_64
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Crystal
+        if: ${{ !startsWith(matrix.name, 'linux') }}
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Build (linux, static)
+        if: startsWith(matrix.name, 'linux')
+        run: |
+          mkdir -p dist
+          docker run --rm -v "$PWD:/src" -w /src crystallang/crystal:latest-alpine \
+            crystal build --release --static --no-debug -o dist/experion src/experion_cli.cr
+
+      - name: Build (macos, libgc and pcre2 linked statically)
+        if: startsWith(matrix.name, 'macos')
+        run: |
+          brew install bdw-gc pcre2
+          mkdir -p dist staticlibs
+          cp "$(brew --prefix bdw-gc)/lib/libgc.a" staticlibs/
+          cp "$(brew --prefix pcre2)/lib/libpcre2-8.a" staticlibs/
+          crystal build --release --no-debug -o dist/experion src/experion_cli.cr --link-flags "-L$PWD/staticlibs"
+          otool -L dist/experion
+
+      - name: Build (windows)
+        if: startsWith(matrix.name, 'windows')
+        shell: bash
+        run: |
+          mkdir -p dist
+          crystal build --release --no-debug -o dist/experion.exe src/experion_cli.cr
+
+      - name: Smoke test
+        shell: sh
+        run: |
+          exe=dist/experion
+          [ -f dist/experion.exe ] && exe=dist/experion.exe
+          printf 'uci\nisready\nposition startpos\ngo depth 6\n' | (cat; sleep 3; echo quit) | ./$exe | tee out.txt
+          grep -q '^bestmove' out.txt
+
+      - name: Package
+        shell: bash
+        run: |
+          name="experion-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          mkdir -p "$name"
+          cp dist/experion* "$name"/
+          cp README.md LICENSE "$name"/
+          if [ "${{ startsWith(matrix.name, 'windows') }}" = "true" ]; then
+            7z a "$name.zip" "$name"
+          else
+            tar czf "$name.tar.gz" "$name"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            experion-*.tar.gz
+            experion-*.zip
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

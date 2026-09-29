@@ -22,6 +22,7 @@ module Experion
 
     def self.run : Nil
       searcher = Searcher.new
+      searcher_bits = 22
       threads = 1
       pos = Position.startpos
       game_hashes = [] of UInt64
@@ -41,6 +42,7 @@ module Experion
           puts "option name Threads type spin default 1 min 1 max 8"
           puts "option name Use NNUE type check default #{Nnue.enabled? ? "true" : "false"}"
           puts "option name EvalBlend type spin default #{Nnue.blend} min 0 max 100"
+          puts "option name EvalFile type string default <embedded>"
           puts "uciok"
           STDOUT.flush
         when "isready"
@@ -61,6 +63,7 @@ module Experion
               end
               searcher.stop!
               search_thread.try(&.join)
+              searcher_bits = bits
               searcher = Searcher.new(TT.new(bits))
             elsif name == "Threads"
               threads = value.to_i?.try(&.clamp(1, 8)) || 1
@@ -68,6 +71,16 @@ module Experion
               searcher.stop!
               search_thread.try(&.join)
               Nnue.set_option(value != "false")
+              searcher.new_game
+            elsif name == "EvalFile"
+              searcher.stop!
+              search_thread.try(&.join)
+              if value == "<embedded>"
+                Nnue.load_embedded
+              else
+                Nnue.load(value)
+              end
+              searcher = Searcher.new(TT.new(searcher_bits))
               searcher.new_game
             elsif name == "EvalBlend"
               searcher.stop!
