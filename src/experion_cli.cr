@@ -3,10 +3,6 @@
 require "./experion"
 require "./experion/bench"
 require "./experion/uci"
-{% unless flag?(:win32) %}
-require "./experion/genficsdata"
-require "./experion/scorefics"
-{% end %}
 
 module Experion
   # Runs a single fixed-movetime search and returns {completed_depth, nodes, ms}.
@@ -51,17 +47,6 @@ module Experion
       path = args[3]? || "training_selfplay.txt"
       thr = args[4]?.try(&.to_i?) || 8
       GenData.run_selfplay(games, depth, path, thr)
-    when "genfics-data"
-      in_path = args[1]? || raise "missing input pgn path"
-      out_path = args[2]? || "training_fics.txt"
-      target = args[3]?.try(&.to_i?) || 100000
-      min_ply = args[4]?.try(&.to_i?) || 16
-      max_ply = args[5]?.try(&.to_i?) || 120
-      GenFicsData.run(in_path, out_path, target, min_ply, max_ply)
-    when "score-fics"
-      in_path = args[1]? || raise "missing input txt path"
-      out_path = args[2]? || "training_fics_scored.txt"
-      ScoreFics.run(in_path, out_path)
     else
       return false
     end

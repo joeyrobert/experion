@@ -1,0 +1,2 @@
+wait_scored: mix25 d8 random-walk labels
+launch gendata-scored 2500 walks d8 t4

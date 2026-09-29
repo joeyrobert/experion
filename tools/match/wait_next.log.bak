@@ -1,0 +1,9 @@
+17:39:12 wait_next start — blend nets, then CCRL quiet FT
+17:39:12 20g 10+0.1 vs fruit net=enn4_mix25_quiet8m.bin stem=quiet8m_fruit
+17:45:13 abort quiet8m_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 1  [0.115] 13
+17:45:15 quiet8m_fruit 1-11-1 = 11.5% / 13g
+17:45:15 20g 10+0.1 vs fruit net=enn4_mix25_quiet_h25.bin stem=quiet_h25_fruit
+17:54:15 quiet_h25_fruit 2-16-2 = 15.0% / 20g
+17:54:15 20g 10+0.1 vs fruit net=enn4_mix25_wdl20.bin stem=mix25wdl_fruit
+18:03:30 mix25wdl_fruit 3-16-1 = 17.5% / 20g
+18:03:30 20g 10+0.1 vs fruit net=enn4_mix25_e1x10.bin stem=mix25e1x10_fruit

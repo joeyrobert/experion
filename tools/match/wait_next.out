@@ -1,0 +1,132 @@
+=== wait_next 2026-09-17 17:39:12 ===
+wait_next start — blend nets, then CCRL quiet FT
+20g 10+0.1 vs fruit net=enn4_mix25_quiet8m.bin stem=quiet8m_fruit
+detached pid=85251 pgid=85251 log=/Users/joey/Repos/experion/tools/match/quiet8m_fruit.log
+abort quiet8m_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 1  [0.115] 13
+quiet8m_fruit 1-11-1 = 11.5% / 13g
+20g 10+0.1 vs fruit net=enn4_mix25_quiet_h25.bin stem=quiet_h25_fruit
+detached pid=85593 pgid=85593 log=/Users/joey/Repos/experion/tools/match/quiet_h25_fruit.log
+quiet_h25_fruit 2-16-2 = 15.0% / 20g
+20g 10+0.1 vs fruit net=enn4_mix25_wdl20.bin stem=mix25wdl_fruit
+detached pid=86295 pgid=86295 log=/Users/joey/Repos/experion/tools/match/mix25wdl_fruit.log
+mix25wdl_fruit 3-16-1 = 17.5% / 20g
+20g 10+0.1 vs fruit net=enn4_mix25_e1x10.bin stem=mix25e1x10_fruit
+detached pid=86900 pgid=86900 log=/Users/joey/Repos/experion/tools/match/mix25e1x10_fruit.log
+
+=== restart qtac 2026-09-17 18:04:58 ===
+wait_next start — blend nets, then CCRL quiet FT
+skip quiet8m, already matched
+skip quiet_h25, already matched
+skip mix25wdl, already matched
+20g 10+0.1 vs fruit net=enn4_mix25_qtac.bin stem=qtac_fruit
+detached pid=87029 pgid=87029 log=/Users/joey/Repos/experion/tools/match/qtac_fruit.log
+abort qtac_fruit.log: Score of Experion vs Fruit21_CCRL2694: 2 - 15 - 0  [0.118] 17
+qtac_fruit 2-15-0 = 11.8% / 17g
+20g 10+0.1 vs fruit net=enn4_mix25_qtac_h25.bin stem=qtac_h25_fruit
+detached pid=87704 pgid=87704 log=/Users/joey/Repos/experion/tools/match/qtac_h25_fruit.log
+qtac_h25_fruit 3-13-4 = 25.0% / 20g
+20g 10+0.1 vs crafty net=enn4_mix25_qtac_h25.bin stem=qtac_h25_crafty
+detached pid=88466 pgid=88466 log=/Users/joey/Repos/experion/tools/match/qtac_h25_crafty.log
+abort qtac_h25_crafty.log: Score of Experion vs Crafty252: 2 - 13 - 2  [0.176] 17
+qtac_h25_crafty 2-13-2 = 17.6% / 17g
+20g 10+0.1 vs fruit net=enn4_mix25_e1x10.bin stem=mix25e1x10_fruit
+detached pid=90313 pgid=90313 log=/Users/joey/Repos/experion/tools/match/mix25e1x10_fruit.log
+
+=== restart blend ladder 2026-09-17 18:30:39 ===
+wait_next start — blend nets, then CCRL quiet FT
+skip quiet8m, already matched
+skip quiet_h25, already matched
+skip mix25wdl, already matched
+skip qtac, already matched
+skip qtac_h25, already matched
+20g 10+0.1 vs fruit net=enn4_mix25_qtac_h20.bin stem=qtac_h20_fruit
+detached pid=90456 pgid=90456 log=/Users/joey/Repos/experion/tools/match/qtac_h20_fruit.log
+qtac_h20_fruit 3-15-2 = 20.0% / 20g
+20g 10+0.1 vs crafty net=enn4_mix25_qtac_h20.bin stem=qtac_h20_crafty
+detached pid=90878 pgid=90878 log=/Users/joey/Repos/experion/tools/match/qtac_h20_crafty.log
+abort qtac_h20_crafty.log: Score of Experion vs Crafty252: 1 - 13 - 0  [0.071] 14
+qtac_h20_crafty 1-13-0 = 7.1% / 14g
+20g 10+0.1 vs fruit net=enn4_mix25_qtac_h30.bin stem=qtac_h30_fruit
+detached pid=92270 pgid=92270 log=/Users/joey/Repos/experion/tools/match/qtac_h30_fruit.log
+abort qtac_h30_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 12 - 0  [0.000] 12
+qtac_h30_fruit 0-12-0 = 0.0% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_qtac3x.bin stem=qtac3x_fruit
+detached pid=92585 pgid=92585 log=/Users/joey/Repos/experion/tools/match/qtac3x_fruit.log
+abort qtac3x_fruit.log: Score of Experion vs Fruit21_CCRL2694: 0 - 12 - 0  [0.000] 12
+qtac3x_fruit 0-12-0 = 0.0% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_qtac3x_h25.bin stem=qtac3x_h25_fruit
+detached pid=92917 pgid=92917 log=/Users/joey/Repos/experion/tools/match/qtac3x_h25_fruit.log
+abort qtac3x_h25_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 0  [0.083] 12
+qtac3x_h25_fruit 1-11-0 = 8.3% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_heads.bin stem=heads_fruit
+detached pid=93195 pgid=93195 log=/Users/joey/Repos/experion/tools/match/heads_fruit.log
+heads_fruit 2-17-1 = 12.5% / 20g
+20g 10+0.1 vs fruit net=enn4_w256_qtac3x.bin stem=w256qtac_fruit
+detached pid=93680 pgid=93680 log=/Users/joey/Repos/experion/tools/match/w256qtac_fruit.log
+w256qtac_fruit 3-16-1 = 17.5% / 20g
+20g 10+0.1 vs fruit net=enn4_mix25_e1x10.bin stem=mix25e1x10_fruit
+detached pid=94172 pgid=94172 log=/Users/joey/Repos/experion/tools/match/mix25e1x10_fruit.log
+
+=== restart h22/h28 + 40g 2026-09-17 19:21:21 ===
+wait_next start — blend nets, then CCRL quiet FT
+skip quiet8m, already matched
+skip quiet_h25, already matched
+skip mix25wdl, already matched
+skip qtac, already matched
+skip qtac_h25, already matched
+skip qtac_h20, already matched
+skip qtac_h30, already matched
+20g 10+0.1 vs fruit net=enn4_mix25_qtac_h22.bin stem=qtac_h22_fruit
+detached pid=94323 pgid=94323 log=/Users/joey/Repos/experion/tools/match/qtac_h22_fruit.log
+qtac_h22_fruit 1-16-3 = 12.5% / 20g
+20g 10+0.1 vs fruit net=enn4_mix25_qtac_h28.bin stem=qtac_h28_fruit
+detached pid=94729 pgid=94729 log=/Users/joey/Repos/experion/tools/match/qtac_h28_fruit.log
+abort qtac_h28_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 14 - 2  [0.118] 17
+qtac_h28_fruit 1-14-2 = 11.8% / 17g
+skip qtac3x, already matched
+skip qtac3x_h25, already matched
+skip heads, already matched
+skip w256qtac, already matched
+40g 10+0.1 vs fruit net=enn4_mix25_qtac_h25.bin stem=qtac_h25_fruit40
+detached pid=95130 pgid=95130 log=/Users/joey/Repos/experion/tools/match/qtac_h25_fruit40.log
+abort qtac_h25_fruit40.log: Score of Experion vs Fruit21_CCRL2694: 2 - 20 - 2  [0.125] 24
+qtac_h25_fruit40 2-20-2 = 12.5% / 24g
+40g 10+0.1 vs crafty net=enn4_mix25_qtac_h25.bin stem=qtac_h25_crafty40
+detached pid=95721 pgid=95721 log=/Users/joey/Repos/experion/tools/match/qtac_h25_crafty40.log
+
+=== restart NMP canaries mix25 2026-09-17 19:49:45 ===
+wait_next start — blend nets, then CCRL quiet FT
+skip quiet8m, already matched
+skip quiet_h25, already matched
+skip mix25wdl, already matched
+skip qtac, already matched
+skip qtac_h25, already matched
+skip qtac_h20, already matched
+skip qtac_h30, already matched
+skip qtac_h22, already matched
+skip qtac_h28, already matched
+skip qtac3x, already matched
+skip qtac3x_h25, already matched
+skip heads, already matched
+skip w256qtac, already matched
+=== search canary nmpr1 ===
+shards build --release
+spec Finished in 6.43 seconds | 664 examples, 0 failures, 0 errors, 0 pending
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_nmpr1
+detached pid=96310 pgid=96310 log=/Users/joey/Repos/experion/tools/match/mix25_nmpr1.log
+abort mix25_nmpr1.log: Score of Experion vs Fruit21_CCRL2694: 2 - 15 - 0  [0.118] 17
+mix25_nmpr1 2-15-0 = 11.8% / 17g
+nmpr1 failed vs Fruit; revert
+shards build --release
+spec Finished in 6.37 seconds | 664 examples, 0 failures, 0 errors, 0 pending
+=== search canary norazor ===
+shards build --release
+spec Finished in 6.39 seconds | 664 examples, 0 failures, 0 errors, 0 pending
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_norazor
+detached pid=96841 pgid=96841 log=/Users/joey/Repos/experion/tools/match/mix25_norazor.log
+abort mix25_norazor.log: Score of Experion vs Fruit21_CCRL2694: 0 - 11 - 1  [0.042] 12
+mix25_norazor 0-11-1 = 4.2% / 12g
+norazor failed vs Fruit; revert
+shards build --release
+spec Finished in 6.38 seconds | 664 examples, 0 failures, 0 errors, 0 pending
+wait_next queue empty — poll cluster; rematch mix25 only if a canary held

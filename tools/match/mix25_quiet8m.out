@@ -1,0 +1,5 @@
+=== quiet8m train 2026-09-17 17:22:50 ===
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.03418660275218103, "val_loss": 0.0339514518867682, "seconds": 22.89}
+{"epoch": 2, "train_loss": 0.033769677630134526, "val_loss": 0.033849188978168, "seconds": 22.85}

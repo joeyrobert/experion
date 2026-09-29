@@ -1,0 +1,5 @@
+=== hang v//5 fruit/crafty 2026-09-17 09:37:44 ===
+hang v//5 + ship net: Fruit then Crafty
+40g 10+0.1 vs fruit net=enn4_w192all.bin hang=v//5
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 fruit hang5_fruit
+detached pid=38589 pgid=38589 log=/Users/joey/Repos/experion/tools/match/hang5_fruit.log

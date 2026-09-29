@@ -1,0 +1,6 @@
+=== qtac3x concat+train 2026-09-17 18:06:17 ===
+{'sources': ['/Users/joey/Repos/experion/datasets/ccrl_quiet8m', '/Users/joey/Repos/experion/datasets/ccrl_tactics3m'], 'upsample_rest': 3, 'positions': {'train': 15103391, 'val': 846609}}
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.03701252748629568, "val_loss": 0.03733352899782, "seconds": 37.49}
+{"epoch": 2, "train_loss": 0.03676709203514087, "val_loss": 0.0372500318637588, "seconds": 36.79}

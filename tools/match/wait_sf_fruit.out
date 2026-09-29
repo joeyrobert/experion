@@ -1,0 +1,31 @@
+wait_sf_fruit: SF-label Fruit-match FENs
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+waiting for fastchess
+SF-label fruit_match FENs d8
+pack fruit_sf19
+{'source': '/Users/joey/Repos/experion/datasets/fruit_sf19.txt', 'positions': {'train': 69446, 'val': 3695}, 'kept': 73141, 'skipped': 1505, 'score_pov': 'white', 'labels': 'self-play search score + game WDL', 'split': 'position hash, 5% val'}
+train mix25 freeze-linear 8ep on mix25_fruitsf lr=0.001
+train mix25_fruitsf rc=0
+material best.bin [302, 543]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fruitsf_h10.bin', 't': 0.1, 'all': False}
+material enn4_mix25_fruitsf_h10.bin [299, 527]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fruitsf_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_fruitsf_h15.bin [299, 528]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_fruitsf_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_fruitsf_h25.bin [298, 530]
+20g 10+0.1 vs fruit net=enn4_mix25_fruitsf_h10.bin stem=mix25_fruitsf_h10_fruit
+detached pid=62923 pgid=62923 log=/Users/joey/Repos/experion/tools/match/mix25_fruitsf_h10_fruit.log
+abort mix25_fruitsf_h10_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 0  [0.083] 12
+mix25_fruitsf_h10_fruit 1-11-0 = 8.3% / 12g
+20g 10+0.1 vs fruit net=enn4_mix25_fruitsf_h15.bin stem=mix25_fruitsf_h15_fruit
+detached pid=63145 pgid=63145 log=/Users/joey/Repos/experion/tools/match/mix25_fruitsf_h15_fruit.log

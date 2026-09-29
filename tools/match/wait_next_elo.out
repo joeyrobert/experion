@@ -1,0 +1,50 @@
+wait_next_elo: waiting for FICS Fruit queue
+FICS queue still matching
+FICS queue still matching
+FICS queue done
+material best.bin [288, 518]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_ficswdl_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_ficswdl_h25.bin [296, 524]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_ficswdl_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_ficswdl_h15.bin [297, 525]
+material enn4_mix25_ficswdl.bin [288, 518]
+20g 10+0.1 vs fruit net=enn4_mix25_ficswdl_h25.bin stem=mix25_ficswdl_h25_fruit
+detached pid=49523 pgid=49523 log=/Users/joey/Repos/experion/tools/match/mix25_ficswdl_h25_fruit.log
+mix25_ficswdl_h25_fruit 2-16-2 = 15.0% / 20g
+20g 10+0.1 vs fruit net=enn4_mix25_ficswdl_h15.bin stem=mix25_ficswdl_h15_fruit
+detached pid=51409 pgid=51409 log=/Users/joey/Repos/experion/tools/match/mix25_ficswdl_h15_fruit.log
+wait_next_elo: SF-label + ProbCut queue
+label 120000 FENs with stockfish d8
+pack sf19_x2
+{'source': '/Users/joey/Repos/experion/datasets/sf19_x2.txt', 'positions': {'train': 79512, 'val': 4154}, 'kept': 83666, 'skipped': 36334, 'score_pov': 'white', 'labels': 'self-play search score + game WDL', 'split': 'position hash, 5% val'}
+train mix25 freeze-linear 3ep on mix25_sf19 lr=0.0002 wdl=0.30
+train mix25_sf19 rc=0
+material best.bin [298, 522]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf19_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_sf19_h25.bin [299, 525]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf19_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_sf19_h15.bin [299, 526]
+material enn4_mix25_sf19.bin [298, 522]
+20g 10+0.1 vs fruit net=enn4_mix25_sf19_h25.bin stem=mix25_sf19_h25_fruit
+detached pid=54151 pgid=54151 log=/Users/joey/Repos/experion/tools/match/mix25_sf19_h25_fruit.log
+wait_next_elo: sf19h (8ep lr=1e-3) then ProbCut
+waiting for fastchess
+material best.bin [279, 497]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf19h_h25.bin', 't': 0.25, 'all': False}
+material enn4_mix25_sf19h_h25.bin [292, 518]
+{'out': '/Users/joey/Repos/experion/nets/enn4_mix25_sf19h_h15.bin', 't': 0.15, 'all': False}
+material enn4_mix25_sf19h_h15.bin [296, 522]
+material enn4_mix25_sf19h.bin [279, 497]
+20g 10+0.1 vs fruit net=enn4_mix25_sf19h_h25.bin stem=mix25_sf19h_h25_fruit
+detached pid=55886 pgid=55886 log=/Users/joey/Repos/experion/tools/match/mix25_sf19h_h25_fruit.log
+mix25_sf19h_h25_fruit 4-16-0 = 20.0% / 20g
+20g 10+0.1 vs crafty net=enn4_mix25_sf19h_h25.bin stem=mix25_sf19h_h25_crafty
+detached pid=57885 pgid=57885 log=/Users/joey/Repos/experion/tools/match/mix25_sf19h_h25_crafty.log
+abort mix25_sf19h_h25_crafty.log: Score of Experion vs Crafty252: 1 - 12 - 1  [0.107] 14
+mix25_sf19h_h25_crafty 1-12-1 = 10.7% / 14g
+20g 10+0.1 vs fruit net=enn4_mix25_sf19h_h15.bin stem=mix25_sf19h_h15_fruit
+detached pid=59452 pgid=59452 log=/Users/joey/Repos/experion/tools/match/mix25_sf19h_h15_fruit.log
+abort mix25_sf19h_h15_fruit.log: Score of Experion vs Fruit21_CCRL2694: 2 - 15 - 0  [0.118] 17
+mix25_sf19h_h15_fruit 2-15-0 = 11.8% / 17g
+20g 10+0.1 vs fruit net=enn4_mix25_sf19h.bin stem=mix25_sf19h_fruit
+detached pid=59544 pgid=59544 log=/Users/joey/Repos/experion/tools/match/mix25_sf19h_fruit.log

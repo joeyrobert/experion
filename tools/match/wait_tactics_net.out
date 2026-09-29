@@ -1,0 +1,447 @@
+tactics net: pack CCRL+captures, train MPS, match Fruit/Crafty
+waiting for CCRL pgn extract
+waiting for CCRL pgn extract
+waiting for CCRL pgn extract
+waiting for CCRL pgn extract
+tactics net: pack CCRL+captures, train MPS, match Fruit/Crafty
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+waiting for 7z to finish
+pgn ready /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn 8677525283
++ python3 /Users/joey/Repos/experion/tools/prepare_ccrl.py /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn /Users/joey/Repos/experion/datasets/ccrl_tactics8m --positions 8000000 --min-depth 10 --include-tactics
+tactics net: pack ~40M CCRL quiets+captures (~200k/neuron at w192)
+pgn ready /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn 8677525283
++ python3 /Users/joey/Repos/experion/tools/prepare_ccrl.py /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn /Users/joey/Repos/experion/datasets/ccrl_tactics40m --positions 40000000 --min-depth 10 --include-tactics
+1000 {'train': 104716, 'val': 4689} tactics
+2000 {'train': 207524, 'val': 10318} tactics
+1000 {'train': 104716, 'val': 4689} tactics
+3000 {'train': 313381, 'val': 17151} tactics
+2000 {'train': 207524, 'val': 10318} tactics
+3000 {'train': 313381, 'val': 17151} tactics
+4000 {'train': 419095, 'val': 21849} tactics
+5000 {'train': 522137, 'val': 28658} tactics
+6000 {'train': 621391, 'val': 34474} tactics
+7000 {'train': 720924, 'val': 39444} tactics
+8000 {'train': 816588, 'val': 46844} tactics
+9000 {'train': 914934, 'val': 52418} tactics
+10000 {'train': 1018309, 'val': 58189} tactics
+11000 {'train': 1121702, 'val': 63400} tactics
+12000 {'train': 1221263, 'val': 68434} tactics
+13000 {'train': 1319365, 'val': 73793} tactics
+14000 {'train': 1417266, 'val': 79216} tactics
+15000 {'train': 1517847, 'val': 85094} tactics
+16000 {'train': 1617163, 'val': 89329} tactics
+17000 {'train': 1717425, 'val': 94698} tactics
+18000 {'train': 1820241, 'val': 99613} tactics
+19000 {'train': 1922884, 'val': 103826} tactics
+20000 {'train': 2022024, 'val': 109133} tactics
+21000 {'train': 2125834, 'val': 113932} tactics
+22000 {'train': 2227902, 'val': 118842} tactics
+23000 {'train': 2324503, 'val': 125655} tactics
+24000 {'train': 2428231, 'val': 130385} tactics
+25000 {'train': 2528774, 'val': 136163} tactics
+26000 {'train': 2631091, 'val': 141697} tactics
+27000 {'train': 2733143, 'val': 149183} tactics
+28000 {'train': 2832870, 'val': 155371} tactics
+29000 {'train': 2930113, 'val': 161188} tactics
+30000 {'train': 3036188, 'val': 166407} tactics
+31000 {'train': 3137429, 'val': 171926} tactics
+32000 {'train': 3241870, 'val': 177605} tactics
+33000 {'train': 3347396, 'val': 182161} tactics
+34000 {'train': 3448562, 'val': 186598} tactics
+35000 {'train': 3555658, 'val': 191332} tactics
+36000 {'train': 3654371, 'val': 196403} tactics
+37000 {'train': 3758176, 'val': 202677} tactics
+38000 {'train': 3857350, 'val': 206992} tactics
+39000 {'train': 3952220, 'val': 211974} tactics
+40000 {'train': 4047565, 'val': 216158} tactics
+41000 {'train': 4149665, 'val': 221690} tactics
+42000 {'train': 4249794, 'val': 225893} tactics
+43000 {'train': 4348950, 'val': 231115} tactics
+44000 {'train': 4444206, 'val': 236394} tactics
+45000 {'train': 4541506, 'val': 240609} tactics
+46000 {'train': 4642170, 'val': 244999} tactics
+47000 {'train': 4740681, 'val': 250528} tactics
+48000 {'train': 4846353, 'val': 256660} tactics
+49000 {'train': 4949936, 'val': 260793} tactics
+50000 {'train': 5050705, 'val': 264051} tactics
+51000 {'train': 5145733, 'val': 267952} tactics
+52000 {'train': 5241636, 'val': 273077} tactics
+53000 {'train': 5340613, 'val': 278557} tactics
+54000 {'train': 5439905, 'val': 283273} tactics
+55000 {'train': 5540532, 'val': 288121} tactics
+56000 {'train': 5634773, 'val': 292873} tactics
+57000 {'train': 5732532, 'val': 297984} tactics
+58000 {'train': 5833698, 'val': 303866} tactics
+59000 {'train': 5935933, 'val': 308708} tactics
+60000 {'train': 6035039, 'val': 314255} tactics
+61000 {'train': 6131628, 'val': 320958} tactics
+62000 {'train': 6232476, 'val': 326840} tactics
+63000 {'train': 6329284, 'val': 331577} tactics
+64000 {'train': 6430297, 'val': 336935} tactics
+65000 {'train': 6532333, 'val': 341581} tactics
+66000 {'train': 6634678, 'val': 346489} tactics
+67000 {'train': 6735733, 'val': 351947} tactics
+68000 {'train': 6826585, 'val': 357929} tactics
+69000 {'train': 6934573, 'val': 361780} tactics
+70000 {'train': 7035776, 'val': 366015} tactics
+71000 {'train': 7129138, 'val': 372121} tactics
+72000 {'train': 7230543, 'val': 377512} tactics
+73000 {'train': 7332268, 'val': 382468} tactics
+74000 {'train': 7430168, 'val': 388136} tactics
+75000 {'train': 7525551, 'val': 393829} tactics
+76000 {'train': 7627429, 'val': 398158} tactics
+77000 {'train': 7727972, 'val': 403420} tactics
+78000 {'train': 7828171, 'val': 408132} tactics
+79000 {'train': 7928729, 'val': 413462} tactics
+80000 {'train': 8027654, 'val': 417567} tactics
+81000 {'train': 8126152, 'val': 423047} tactics
+82000 {'train': 8227509, 'val': 429010} tactics
+83000 {'train': 8331742, 'val': 433968} tactics
+84000 {'train': 8428053, 'val': 439188} tactics
+85000 {'train': 8530397, 'val': 442851} tactics
+86000 {'train': 8629939, 'val': 449470} tactics
+87000 {'train': 8725255, 'val': 454631} tactics
+88000 {'train': 8826870, 'val': 460402} tactics
+89000 {'train': 8925042, 'val': 466558} tactics
+90000 {'train': 9029716, 'val': 471535} tactics
+91000 {'train': 9134736, 'val': 475186} tactics
+92000 {'train': 9236715, 'val': 480796} tactics
+93000 {'train': 9335788, 'val': 485943} tactics
+94000 {'train': 9435037, 'val': 492215} tactics
+95000 {'train': 9541344, 'val': 496441} tactics
+96000 {'train': 9647740, 'val': 502011} tactics
+97000 {'train': 9751177, 'val': 507814} tactics
+98000 {'train': 9851316, 'val': 512584} tactics
+99000 {'train': 9950220, 'val': 517456} tactics
+100000 {'train': 10043737, 'val': 523212} tactics
+101000 {'train': 10142693, 'val': 529220} tactics
+102000 {'train': 10236812, 'val': 534008} tactics
+103000 {'train': 10333317, 'val': 537924} tactics
+104000 {'train': 10439138, 'val': 543319} tactics
+105000 {'train': 10542169, 'val': 548994} tactics
+106000 {'train': 10635753, 'val': 555978} tactics
+107000 {'train': 10738355, 'val': 560454} tactics
+108000 {'train': 10833583, 'val': 565003} tactics
+109000 {'train': 10934351, 'val': 569757} tactics
+110000 {'train': 11040720, 'val': 575283} tactics
+111000 {'train': 11142475, 'val': 580948} tactics
+112000 {'train': 11234194, 'val': 586299} tactics
+113000 {'train': 11342952, 'val': 592439} tactics
+114000 {'train': 11439548, 'val': 597061} tactics
+115000 {'train': 11545313, 'val': 602762} tactics
+116000 {'train': 11642254, 'val': 608086} tactics
+117000 {'train': 11739608, 'val': 612906} tactics
+118000 {'train': 11832400, 'val': 617416} tactics
+119000 {'train': 11937482, 'val': 623923} tactics
+120000 {'train': 12037889, 'val': 628699} tactics
+121000 {'train': 12144874, 'val': 633282} tactics
+122000 {'train': 12244768, 'val': 638656} tactics
+123000 {'train': 12347838, 'val': 645396} tactics
+124000 {'train': 12450344, 'val': 650812} tactics
+125000 {'train': 12546500, 'val': 656059} tactics
+126000 {'train': 12650631, 'val': 660701} tactics
+127000 {'train': 12745504, 'val': 664880} tactics
+128000 {'train': 12849017, 'val': 671358} tactics
+129000 {'train': 12941152, 'val': 675676} tactics
+130000 {'train': 13017779, 'val': 679990} tactics
+131000 {'train': 13112436, 'val': 685047} tactics
+132000 {'train': 13209412, 'val': 689476} tactics
+133000 {'train': 13303948, 'val': 695419} tactics
+134000 {'train': 13394189, 'val': 699965} tactics
+135000 {'train': 13478851, 'val': 703984} tactics
+136000 {'train': 13565726, 'val': 708034} tactics
+137000 {'train': 13653346, 'val': 712027} tactics
+138000 {'train': 13757131, 'val': 716387} tactics
+139000 {'train': 13852870, 'val': 720682} tactics
+140000 {'train': 13945402, 'val': 726937} tactics
+141000 {'train': 14041139, 'val': 732500} tactics
+142000 {'train': 14136943, 'val': 738738} tactics
+143000 {'train': 14222651, 'val': 743452} tactics
+144000 {'train': 14318896, 'val': 748753} tactics
+145000 {'train': 14407443, 'val': 752774} tactics
+146000 {'train': 14489724, 'val': 757386} tactics
+147000 {'train': 14578667, 'val': 761776} tactics
+148000 {'train': 14672469, 'val': 766442} tactics
+149000 {'train': 14767570, 'val': 771058} tactics
+150000 {'train': 14863809, 'val': 776324} tactics
+151000 {'train': 14956693, 'val': 780918} tactics
+152000 {'train': 15054634, 'val': 785461} tactics
+153000 {'train': 15158619, 'val': 790235} tactics
+154000 {'train': 15250291, 'val': 794964} tactics
+155000 {'train': 15343973, 'val': 799579} tactics
+156000 {'train': 15433164, 'val': 805404} tactics
+157000 {'train': 15529874, 'val': 812392} tactics
+158000 {'train': 15624866, 'val': 817477} tactics
+159000 {'train': 15721439, 'val': 822329} tactics
+160000 {'train': 15821260, 'val': 826996} tactics
+161000 {'train': 15920630, 'val': 832341} tactics
+162000 {'train': 16016324, 'val': 836711} tactics
+163000 {'train': 16109678, 'val': 840824} tactics
+164000 {'train': 16204782, 'val': 845203} tactics
+165000 {'train': 16309030, 'val': 851975} tactics
+166000 {'train': 16407792, 'val': 856040} tactics
+167000 {'train': 16502959, 'val': 862022} tactics
+168000 {'train': 16599669, 'val': 868074} tactics
+169000 {'train': 16693863, 'val': 873820} tactics
+170000 {'train': 16789465, 'val': 878448} tactics
+171000 {'train': 16884285, 'val': 882976} tactics
+172000 {'train': 16987571, 'val': 888358} tactics
+173000 {'train': 17086023, 'val': 893738} tactics
+174000 {'train': 17191259, 'val': 897685} tactics
+175000 {'train': 17291057, 'val': 902546} tactics
+176000 {'train': 17395795, 'val': 906391} tactics
+177000 {'train': 17492674, 'val': 912232} tactics
+178000 {'train': 17588031, 'val': 915671} tactics
+179000 {'train': 17688587, 'val': 922222} tactics
+180000 {'train': 17782863, 'val': 926802} tactics
+181000 {'train': 17886441, 'val': 932587} tactics
+182000 {'train': 17985528, 'val': 936992} tactics
+183000 {'train': 18082238, 'val': 942257} tactics
+184000 {'train': 18178496, 'val': 947218} tactics
+185000 {'train': 18273337, 'val': 952385} tactics
+186000 {'train': 18372979, 'val': 956860} tactics
+187000 {'train': 18467257, 'val': 962288} tactics
+188000 {'train': 18564046, 'val': 967560} tactics
+189000 {'train': 18657325, 'val': 973658} tactics
+190000 {'train': 18766381, 'val': 978508} tactics
+191000 {'train': 18865209, 'val': 982777} tactics
+192000 {'train': 18959276, 'val': 988318} tactics
+193000 {'train': 19052494, 'val': 992670} tactics
+194000 {'train': 19149235, 'val': 997413} tactics
+195000 {'train': 19251608, 'val': 1003958} tactics
+196000 {'train': 19348958, 'val': 1010529} tactics
+197000 {'train': 19459841, 'val': 1014931} tactics
+198000 {'train': 19552733, 'val': 1021067} tactics
+199000 {'train': 19660469, 'val': 1025961} tactics
+200000 {'train': 19761542, 'val': 1030015} tactics
+201000 {'train': 19876671, 'val': 1035352} tactics
+202000 {'train': 19972300, 'val': 1040157} tactics
+203000 {'train': 20080935, 'val': 1045047} tactics
+204000 {'train': 20170913, 'val': 1050473} tactics
+205000 {'train': 20261079, 'val': 1055219} tactics
+206000 {'train': 20359865, 'val': 1060632} tactics
+207000 {'train': 20465138, 'val': 1066277} tactics
+208000 {'train': 20569134, 'val': 1072678} tactics
+209000 {'train': 20670604, 'val': 1078854} tactics
+210000 {'train': 20776443, 'val': 1083592} tactics
+211000 {'train': 20884837, 'val': 1089898} tactics
+212000 {'train': 20992414, 'val': 1095916} tactics
+213000 {'train': 21094181, 'val': 1101366} tactics
+214000 {'train': 21195345, 'val': 1106035} tactics
+215000 {'train': 21296720, 'val': 1110600} tactics
+216000 {'train': 21405343, 'val': 1117646} tactics
+217000 {'train': 21503880, 'val': 1123019} tactics
+218000 {'train': 21601372, 'val': 1127579} tactics
+219000 {'train': 21707878, 'val': 1130828} tactics
+220000 {'train': 21813360, 'val': 1135968} tactics
+221000 {'train': 21912321, 'val': 1140853} tactics
+222000 {'train': 22022769, 'val': 1147446} tactics
+223000 {'train': 22118440, 'val': 1153599} tactics
+224000 {'train': 22233605, 'val': 1158522} tactics
+225000 {'train': 22329412, 'val': 1163642} tactics
+226000 {'train': 22448421, 'val': 1169422} tactics
+227000 {'train': 22550218, 'val': 1174674} tactics
+228000 {'train': 22650702, 'val': 1179671} tactics
+229000 {'train': 22762478, 'val': 1185701} tactics
+230000 {'train': 22862025, 'val': 1190863} tactics
+231000 {'train': 22957556, 'val': 1196943} tactics
+232000 {'train': 23053065, 'val': 1200863} tactics
+233000 {'train': 23146916, 'val': 1205432} tactics
+234000 {'train': 23244107, 'val': 1211449} tactics
+235000 {'train': 23359683, 'val': 1217994} tactics
+236000 {'train': 23462963, 'val': 1222406} tactics
+237000 {'train': 23570680, 'val': 1227694} tactics
+238000 {'train': 23679197, 'val': 1233706} tactics
+239000 {'train': 23779992, 'val': 1238492} tactics
+240000 {'train': 23881145, 'val': 1243276} tactics
+241000 {'train': 23991882, 'val': 1249410} tactics
+242000 {'train': 24093691, 'val': 1254625} tactics
+243000 {'train': 24198674, 'val': 1261123} tactics
+244000 {'train': 24303529, 'val': 1266352} tactics
+245000 {'train': 24400162, 'val': 1270916} tactics
+246000 {'train': 24512726, 'val': 1276336} tactics
+247000 {'train': 24608682, 'val': 1282417} tactics
+248000 {'train': 24704951, 'val': 1287676} tactics
+249000 {'train': 24816893, 'val': 1294013} tactics
+250000 {'train': 24918066, 'val': 1299983} tactics
+251000 {'train': 25018843, 'val': 1305313} tactics
+252000 {'train': 25130997, 'val': 1310294} tactics
+253000 {'train': 25231695, 'val': 1313910} tactics
+254000 {'train': 25335490, 'val': 1320075} tactics
+255000 {'train': 25445963, 'val': 1326943} tactics
+256000 {'train': 25545207, 'val': 1332246} tactics
+257000 {'train': 25648942, 'val': 1337765} tactics
+258000 {'train': 25750570, 'val': 1343160} tactics
+259000 {'train': 25851967, 'val': 1348131} tactics
+260000 {'train': 25956024, 'val': 1352740} tactics
+261000 {'train': 26057186, 'val': 1358400} tactics
+262000 {'train': 26151677, 'val': 1362984} tactics
+263000 {'train': 26261438, 'val': 1368386} tactics
+264000 {'train': 26379105, 'val': 1373875} tactics
+265000 {'train': 26484757, 'val': 1380013} tactics
+266000 {'train': 26581405, 'val': 1384326} tactics
+267000 {'train': 26690744, 'val': 1389087} tactics
+268000 {'train': 26783478, 'val': 1394930} tactics
+269000 {'train': 26881314, 'val': 1400551} tactics
+270000 {'train': 26981978, 'val': 1405384} tactics
+271000 {'train': 27084564, 'val': 1409526} tactics
+272000 {'train': 27187676, 'val': 1414776} tactics
+273000 {'train': 27289501, 'val': 1419717} tactics
+274000 {'train': 27403402, 'val': 1425299} tactics
+275000 {'train': 27506908, 'val': 1429591} tactics
+276000 {'train': 27618484, 'val': 1435346} tactics
+277000 {'train': 27725871, 'val': 1440546} tactics
+278000 {'train': 27831914, 'val': 1445522} tactics
+279000 {'train': 27928598, 'val': 1452472} tactics
+280000 {'train': 28041669, 'val': 1458422} tactics
+281000 {'train': 28137549, 'val': 1463034} tactics
+282000 {'train': 28246567, 'val': 1467602} tactics
+283000 {'train': 28347885, 'val': 1470648} tactics
+284000 {'train': 28455506, 'val': 1476069} tactics
+285000 {'train': 28556845, 'val': 1481763} tactics
+286000 {'train': 28655157, 'val': 1487181} tactics
+287000 {'train': 28759634, 'val': 1492458} tactics
+288000 {'train': 28867790, 'val': 1499434} tactics
+289000 {'train': 28964061, 'val': 1504468} tactics
+290000 {'train': 29074625, 'val': 1508805} tactics
+291000 {'train': 29169570, 'val': 1513740} tactics
+292000 {'train': 29276173, 'val': 1519230} tactics
+293000 {'train': 29384805, 'val': 1524831} tactics
+294000 {'train': 29490599, 'val': 1529751} tactics
+295000 {'train': 29605464, 'val': 1534880} tactics
+296000 {'train': 29705851, 'val': 1540116} tactics
+297000 {'train': 29810659, 'val': 1546018} tactics
+298000 {'train': 29909207, 'val': 1550836} tactics
+299000 {'train': 30029284, 'val': 1559016} tactics
+300000 {'train': 30136135, 'val': 1563748} tactics
+301000 {'train': 30232284, 'val': 1569719} tactics
+302000 {'train': 30348014, 'val': 1575369} tactics
+303000 {'train': 30448551, 'val': 1580049} tactics
+304000 {'train': 30560879, 'val': 1586716} tactics
+305000 {'train': 30666673, 'val': 1592522} tactics
+306000 {'train': 30775116, 'val': 1598182} tactics
+307000 {'train': 30874529, 'val': 1604267} tactics
+308000 {'train': 30970012, 'val': 1610863} tactics
+309000 {'train': 31076040, 'val': 1615311} tactics
+310000 {'train': 31172236, 'val': 1621264} tactics
+311000 {'train': 31264915, 'val': 1627985} tactics
+312000 {'train': 31366128, 'val': 1634271} tactics
+313000 {'train': 31465852, 'val': 1639989} tactics
+314000 {'train': 31565466, 'val': 1645821} tactics
+315000 {'train': 31672204, 'val': 1652295} tactics
+316000 {'train': 31797262, 'val': 1659094} tactics
+317000 {'train': 31899308, 'val': 1665291} tactics
+318000 {'train': 32014241, 'val': 1669884} tactics
+319000 {'train': 32126794, 'val': 1675256} tactics
+320000 {'train': 32239996, 'val': 1681698} tactics
+321000 {'train': 32349992, 'val': 1687362} tactics
+322000 {'train': 32452720, 'val': 1692209} tactics
+323000 {'train': 32561363, 'val': 1699421} tactics
+324000 {'train': 32673175, 'val': 1704892} tactics
+325000 {'train': 32775044, 'val': 1710291} tactics
+326000 {'train': 32880826, 'val': 1717175} tactics
+327000 {'train': 32985703, 'val': 1722026} tactics
+328000 {'train': 33096641, 'val': 1728015} tactics
+329000 {'train': 33206728, 'val': 1733550} tactics
+330000 {'train': 33310452, 'val': 1738580} tactics
+331000 {'train': 33407901, 'val': 1743954} tactics
+332000 {'train': 33506763, 'val': 1748370} tactics
+333000 {'train': 33603196, 'val': 1753425} tactics
+334000 {'train': 33701771, 'val': 1758117} tactics
+335000 {'train': 33800413, 'val': 1763132} tactics
+336000 {'train': 33897780, 'val': 1768588} tactics
+337000 {'train': 34001528, 'val': 1774120} tactics
+338000 {'train': 34099627, 'val': 1778377} tactics
+339000 {'train': 34197876, 'val': 1785027} tactics
+340000 {'train': 34308099, 'val': 1791177} tactics
+341000 {'train': 34407345, 'val': 1797097} tactics
+342000 {'train': 34508479, 'val': 1802990} tactics
+343000 {'train': 34616058, 'val': 1807586} tactics
+344000 {'train': 34714242, 'val': 1813694} tactics
+345000 {'train': 34838818, 'val': 1820730} tactics
+346000 {'train': 34935776, 'val': 1826295} tactics
+347000 {'train': 35047521, 'val': 1832186} tactics
+348000 {'train': 35146451, 'val': 1837232} tactics
+349000 {'train': 35261334, 'val': 1843834} tactics
+350000 {'train': 35369069, 'val': 1849872} tactics
+351000 {'train': 35471916, 'val': 1854836} tactics
+352000 {'train': 35572287, 'val': 1860046} tactics
+353000 {'train': 35671677, 'val': 1865486} tactics
+354000 {'train': 35769920, 'val': 1869739} tactics
+355000 {'train': 35872813, 'val': 1875760} tactics
+356000 {'train': 35973626, 'val': 1882337} tactics
+357000 {'train': 36078856, 'val': 1888070} tactics
+358000 {'train': 36176473, 'val': 1893931} tactics
+359000 {'train': 36283653, 'val': 1901478} tactics
+360000 {'train': 36392240, 'val': 1907487} tactics
+361000 {'train': 36495037, 'val': 1911398} tactics
+362000 {'train': 36597604, 'val': 1917500} tactics
+363000 {'train': 36697646, 'val': 1923448} tactics
+364000 {'train': 36803337, 'val': 1930205} tactics
+365000 {'train': 36903681, 'val': 1935122} tactics
+366000 {'train': 37000942, 'val': 1942178} tactics
+367000 {'train': 37112214, 'val': 1946239} tactics
+368000 {'train': 37218901, 'val': 1952412} tactics
+369000 {'train': 37326120, 'val': 1958826} tactics
+370000 {'train': 37427230, 'val': 1965463} tactics
+371000 {'train': 37534428, 'val': 1971545} tactics
+372000 {'train': 37628750, 'val': 1978361} tactics
+373000 {'train': 37734114, 'val': 1986269} tactics
+374000 {'train': 37837843, 'val': 1993296} tactics
+375000 {'train': 37953883, 'val': 1997977} tactics
+{'source': '/Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn', 'games_read': 375423, 'positions': {'train': 37999479, 'val': 2000521}, 'kept': 40000000, 'score_pov': 'white', 'position': 'before annotated move', 'sampling': 'annotated ply>=8 depth>=10 |score|<=25, quiets+captures+checks', 'include_tactics': True, 'min_depth': 10, 'skip_bytes': 0}
++ python3 /Users/joey/Repos/experion/tools/train_nnue_v4.py /Users/joey/Repos/experion/datasets/ccrl_tactics40m /Users/joey/Repos/experion/datasets/enn4_tactics40m_train --epochs 20 --lr 0.0015 --width 192 --batch 4096 --device mps --eval-weight 0.9 --wdl-weight 0.1
+{"auto_resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin", "lr": 0.0006, "epochs": 8}
+{"resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin"}
+Traceback (most recent call last):
+  File "/Users/joey/Repos/experion/tools/train_nnue_v4.py", line 182, in <module>
+    main()
+  File "/Users/joey/Repos/experion/tools/train_nnue_v4.py", line 159, in main
+    err = loss(net(bw, bb, bt[:, 0]), bt)
+  File "/Users/joey/Library/Python/3.9/lib/python/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/joey/Library/Python/3.9/lib/python/site-packages/torch/nn/modules/module.py", line 1784, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/joey/Repos/experion/tools/train_nnue_v4.py", line 35, in forward
+    wa = F.embedding_bag(w, self.ft.weight, mode='sum', padding_idx=768)
+  File "/Users/joey/Library/Python/3.9/lib/python/site-packages/torch/nn/functional.py", line 2749, in embedding_bag
+    ret, _, _, _ = torch.embedding_bag(
+NotImplementedError: The operator 'aten::_embedding_bag' is not currently implemented for the MPS device. If you want this op to be considered for addition please comment on https://github.com/pytorch/pytorch/issues/141287 and mention use-case, that resulted in missing op as well as commit hash a1cb3cc05d46d198467bebbb6e8fba50a325d4e7. As a temporary fix, you can set the environment variable `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback for this op. WARNING: this will be slower than running natively on MPS.
+failed rc=1
+
+=== restart after MPS embedding fix 2026-09-17 09:00:00 ===
+tactics net: pack ~40M CCRL quiets+captures (~200k/neuron at w192)
+pgn ready /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn 8677525283
+pack already exists
++ python3 /Users/joey/Repos/experion/tools/train_nnue_v4.py /Users/joey/Repos/experion/datasets/ccrl_tactics40m /Users/joey/Repos/experion/datasets/enn4_tactics40m_train --epochs 8 --lr 0.0006 --width 192 --batch 4096 --device mps --eval-weight 0.9 --wdl-weight 0.1 --resume /Users/joey/Repos/experion/nets/enn4_w192all.bin
+{"resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin"}
+/Users/joey/Repos/experion/tools/train_nnue_v4.py:54: RuntimeWarning: invalid value encountered in cast
+  return a.astype('<i2')
+{"epoch": 1, "train_loss": NaN, "val_loss": NaN, "seconds": 97.18}
+
+=== restart after MPS NaN/non_blocking fix 2026-09-17 09:02:51 ===
+tactics net: pack ~40M CCRL quiets+captures (~200k/neuron at w192)
+pgn ready /Users/joey/Repos/experion/datasets/ccrl4040/CCRL-4040-commented.[2436759].pgn 8677525283
+pack already exists
++ python3 /Users/joey/Repos/experion/tools/train_nnue_v4.py /Users/joey/Repos/experion/datasets/ccrl_tactics40m /Users/joey/Repos/experion/datasets/enn4_tactics40m_train --epochs 8 --lr 0.0006 --width 192 --batch 4096 --device mps --eval-weight 0.9 --wdl-weight 0.1 --resume /Users/joey/Repos/experion/nets/enn4_w192all.bin
+{"resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin"}
+{"epoch": 1, "train_loss": 0.02446552443821947, "val_loss": 0.024594149460247013, "seconds": 107.67}
+{"epoch": 2, "train_loss": 0.023888677212282283, "val_loss": 0.024363411664562552, "seconds": 107.23}
+{"epoch": 3, "train_loss": 0.023695347320604496, "val_loss": 0.0242312149345632, "seconds": 107.16}
+{"epoch": 4, "train_loss": 0.023588461399174466, "val_loss": 0.024165677967565382, "seconds": 107.81}
+{"epoch": 5, "train_loss": 0.023526691740373345, "val_loss": 0.024134462655314524, "seconds": 107.69}
+{"epoch": 6, "train_loss": 0.02348720996194224, "val_loss": 0.024115337888684963, "seconds": 107.18}
+{"epoch": 7, "train_loss": 0.023461748150011518, "val_loss": 0.0241052207364058, "seconds": 107.37}
+{"epoch": 8, "train_loss": 0.023446730766891622, "val_loss": 0.024097775938551405, "seconds": 107.5}
++ cp /Users/joey/Repos/experion/datasets/enn4_tactics40m_train/best.bin /Users/joey/Repos/experion/nets/enn4_tactics40m.bin
+wrote /Users/joey/Repos/experion/nets/enn4_tactics40m.bin
+40g 10+0.1 vs sungorus
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 20 sungorus tacnet_sungorus
+detached pid=36256 pgid=36256 log=/Users/joey/Repos/experion/tools/match/tacnet_sungorus.log

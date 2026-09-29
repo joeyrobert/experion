@@ -1,0 +1,10 @@
+{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
+{"freeze_linear": true}
+{"epoch": 1, "train_loss": 0.020577130486922456, "val_loss": 0.019902770987377978, "seconds": 0.74}
+{"epoch": 2, "train_loss": 0.019330368506626654, "val_loss": 0.01914382595518689, "seconds": 0.36}
+{"epoch": 3, "train_loss": 0.018557775601888878, "val_loss": 0.018609082788188822, "seconds": 0.35}
+{"epoch": 4, "train_loss": 0.018010329788631468, "val_loss": 0.018251892803814212, "seconds": 0.34}
+{"epoch": 5, "train_loss": 0.01763080381058697, "val_loss": 0.018008349496479625, "seconds": 0.34}
+{"epoch": 6, "train_loss": 0.01738283740248657, "val_loss": 0.01786429845800779, "seconds": 0.35}
+{"epoch": 7, "train_loss": 0.017234939955167606, "val_loss": 0.017783583214662144, "seconds": 0.35}
+{"epoch": 8, "train_loss": 0.017158908198597656, "val_loss": 0.017749433002542614, "seconds": 0.34}

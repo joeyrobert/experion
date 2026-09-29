@@ -1,0 +1,5 @@
+=== RFP<=2 fruit/crafty 2026-09-17 09:43:43 ===
+RFP<=2 + ship: Fruit 20g then Crafty 20g
+20g 10+0.1 vs fruit net=enn4_w192all.bin rfp<=2
++ python3 /Users/joey/Repos/experion/tools/match/run_detached.py 10+0.1 10 fruit rfp2_fruit
+detached pid=39113 pgid=39113 log=/Users/joey/Repos/experion/tools/match/rfp2_fruit.log

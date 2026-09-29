@@ -1,0 +1,19 @@
+wait_bishop: +25 pair overlay vs Fruit on mix25
+shards build --release
+build rc=0
+20g 10+0.1 vs fruit net=enn4_tactics_mix25.bin stem=mix25_bishop_fruit
+detached pid=77566 pgid=77566 log=/Users/joey/Repos/experion/tools/match/mix25_bishop_fruit.log
+abort mix25_bishop_fruit.log: Score of Experion vs Fruit21_CCRL2694: 1 - 11 - 1  [0.115] 13
+mix25_bishop_fruit 1-11-1 = 11.5% / 13g
+bishop failed Fruit; revert
+reverted bishop-pair overlay
+shards build --release
+build rc=0
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
+llama still down
