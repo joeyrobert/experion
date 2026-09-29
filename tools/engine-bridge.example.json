@@ -1,0 +1,16 @@
+{
+  "engines": [
+    {
+      "id": "experion-native",
+      "name": "Experion (native, 4 threads)",
+      "cmd": ["bin/experion"],
+      "options": { "Threads": 4, "Hash": 256 }
+    },
+    {
+      "id": "crafty",
+      "name": "Crafty 25.2",
+      "cmd": ["tools/match/uci_bridge", "--needs-restart", "tools/match/Crafty-Chess-25.2/crafty252"],
+      "cwd": "tools/match/Crafty-Chess-25.2"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Credits and sources, Experion</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="./"><span class="knight">&#9822;&#65038;</span> Experion</a>
+      <nav class="site">
+        <a href="./">About</a>
+        <a href="./#download">Download</a>
+        <a href="play/">Play</a>
+        <a class="current" href="credits.html">Credits</a>
+        <a href="https://github.com/joeyrobert/experion">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap" style="max-width: 760px; padding-top: 32px;">
+    <h1>Credits and sources</h1>
+    <p>The play page runs three engines side by side. Each one keeps its own license, and the source for
+      what is served here is public.</p>
+
+    <h2>Experion</h2>
+    <p>MIT license. Source: <a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a>. The
+      WebAssembly build is produced from <code>src/experion_wasm.cr</code> by <code>tools/build_wasm.sh</code>.</p>
+
+    <h2>Fruit 2.1</h2>
+    <p>&copy; 2004&ndash;2005 Fabien Letouzey. GNU General Public License, version 2 or (at your option) any later
+      version. The unmodified source, apart from one documented change so that it can wait for input under
+      WebAssembly, is in
+      <a href="https://github.com/joeyrobert/experion/tree/main/third_party/fruit-2.1">third_party/fruit-2.1</a> and is
+      compiled by <code>tools/build_fruit_wasm.sh</code>. The binary served here is built from exactly that source.</p>
+
+    <h2>CeruleanJS</h2>
+    <p>&copy; Joey Robert. GNU General Public License, version 3. Source:
+      <a href="https://bitbucket.org/joeyrobert/ceruleanjs">bitbucket.org/joeyrobert/ceruleanjs</a>. The worker served here
+      is the <code>npm run build-web</code> output of that repository; see
+      <a href="https://github.com/joeyrobert/experion/tree/main/site/engines/ceruleanjs">site/engines/ceruleanjs</a> for the
+      license text and the exact commit. Its opening book is the <code>gm2001</code> Polyglot book from
+      <a href="https://github.com/joeyrobert/ceruleanjs_opening_books">ceruleanjs_opening_books</a> (games by players rated
+      2530 and above, compiled by Oliver Deville).</p>
+
+    <h2>Crafty</h2>
+    <p>Crafty is not bundled. Its license does not allow redistribution without the authors' permission, so it is
+      only available through the optional local bridge, which drives a copy you already have on your own computer.</p>
+
+    <h2>Other</h2>
+    <p>Move legality and game-end rules come from <a href="https://github.com/jhlywa/chess.js">chess.js</a> (BSD 2-clause,
+      Jeff Hlywa). The Experion network was trained on games from the
+      <a href="https://computerchess.org.uk/ccrl/4040/">CCRL 40/15</a> rating list.</p>
+  </main>
+
+  <footer class="site">
+    <div class="wrap"><span>Experion is MIT licensed.</span><span><a href="https://github.com/joeyrobert/experion">GitHub</a></span></div>
+  </footer>
+</body>
+</html>

@@ -17,6 +17,7 @@
         <a href="../">About</a>
         <a href="../#download">Download</a>
         <a class="current" href="./">Play</a>
+        <a href="../credits.html">Credits</a>
         <a href="https://github.com/joeyrobert/experion">Source</a>
       </nav>
     </div>
@@ -25,6 +26,7 @@
   <main class="wrap play">
     <section class="board-col">
       <div id="status" role="status" aria-live="polite">Loading&hellip;</div>
+      <div class="tag" id="tag-top"></div>
       <div class="board-row">
         <div class="eval" title="Engine evaluation: the white part of the bar grows as White gets better">
           <div id="eval-fill"></div>
@@ -34,6 +36,7 @@
           <div id="promotion" hidden></div>
         </div>
       </div>
+      <div class="tag" id="tag-bottom"></div>
       <div id="eval-label"></div>
       <div id="info"></div>
     </section>
@@ -41,10 +44,15 @@
     <aside class="side-col">
       <div class="panel">
         <div class="row">
-          <label>Play as
-            <select id="side"><option value="w">White</option><option value="b">Black</option></select>
+          <label>White
+            <select id="white"></select>
           </label>
-          <label>Level
+          <label>Black
+            <select id="black"></select>
+          </label>
+        </div>
+        <div class="row">
+          <label>Strength
             <select id="level">
               <option value="beginner">Beginner (depth 1)</option>
               <option value="casual">Casual (depth 4)</option>
@@ -53,15 +61,21 @@
               <option value="maximum">Maximum (8 s)</option>
             </select>
           </label>
+          <label>Openings
+            <select id="openings">
+              <option value="lines" selected>Random lines</option>
+              <option value="none">Engine's own</option>
+            </select>
+          </label>
         </div>
         <div class="row buttons">
           <button id="new" class="btn primary">New game</button>
           <button id="undo" class="btn">Undo</button>
           <button id="flip" class="btn">Flip</button>
-          <button id="go" class="btn">Engine move</button>
         </div>
         <div class="row buttons">
-          <button id="auto" class="btn">Engine vs. engine</button>
+          <button id="pause" class="btn">Pause</button>
+          <button id="go" class="btn">Engine move</button>
         </div>
       </div>
 
@@ -76,15 +90,17 @@
       </div>
 
       <p class="note">
-        The engine runs in your browser as WebAssembly on a single thread, with the same
-        network and search as the desktop builds. The desktop engine, using several threads,
-        is considerably stronger.
+        Every engine runs in your browser. Experion and Fruit are compiled to WebAssembly and run on
+        a single thread; CeruleanJS is plain JavaScript with its opening book. Pick any pairing,
+        including engine against engine. The desktop Experion, using several threads, is stronger.
+        <button id="bridge" class="linklike">Local engines</button> connects native engines on your
+        own computer (for example Crafty) through <code>tools/engine-bridge.mjs</code>.
       </p>
     </aside>
   </main>
 
   <footer class="site">
-    <div class="wrap"><span>Experion is MIT licensed. Rules by <a href="https://github.com/jhlywa/chess.js">chess.js</a>.</span><span><a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a></span></div>
+    <div class="wrap"><span>Experion is MIT licensed. Fruit 2.1 by Fabien Letouzey (GPL), CeruleanJS by Joey Robert (GPL-3.0); rules by <a href="https://github.com/jhlywa/chess.js">chess.js</a>. <a href="../credits.html">Credits and sources</a></span><span><a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a></span></div>
   </footer>
 
   <script type="module" src="player.js"></script>

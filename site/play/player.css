@@ -58,3 +58,10 @@ select { background: var(--panel-2); color: var(--text); border: 1px solid var(-
 #moves .num { color: var(--muted); margin-left: 6px; }
 #moves .mv.current { background: var(--accent); color: #06121c; border-radius: 4px; padding: 0 4px; }
 .note { color: var(--muted); font-size: .85rem; margin: 0; }
+
+.tag { display: flex; align-items: center; gap: 6px; margin: 0 0 6px 24px; padding: 4px 10px; width: fit-content; border-radius: 8px; font-size: .9rem; color: var(--muted); border: 1px solid transparent; }
+.tag.active { color: var(--text); border-color: var(--line); background: var(--panel); }
+#tag-bottom { margin: 6px 0 0 24px; }
+.linklike { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.btn:disabled { opacity: .45; cursor: default; }
+.note code { font-size: .8em; }

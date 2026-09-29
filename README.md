@@ -13,14 +13,22 @@ evaluation (NNUE) trained from scratch on CCRL game data.
 
 ## Play it
 
-A playable version runs in the browser at **https://joeyrobert.github.io/experion/** (the engine is compiled
-to WebAssembly; single thread, same network and search). To run the site locally:
+A playable version runs in the browser at **https://joeyrobert.github.io/experion/play/**. Each side can be a
+human or any of three engines, so you can play them or watch them play each other: Experion and Fruit 2.1
+(both compiled to WebAssembly, single thread) and CeruleanJS (JavaScript, with an opening book). See
+[THIRD_PARTY.md](THIRD_PARTY.md) for licenses.
 
 ```sh
-tools/build_wasm.sh                      # needs Crystal, lld and wasi-libc; writes site/play/experion.wasm
+tools/build_wasm.sh                      # Experion -> site/play/experion.wasm (needs Crystal, lld, wasi-libc)
+tools/build_fruit_wasm.sh                # Fruit 2.1 -> site/engines/fruit/fruit.wasm (needs clang with wasm32)
 python3 -m http.server --directory site  # then open http://localhost:8000/play/
-node tools/wasm_smoke.mjs                # checks the wasm build
+node tools/wasm_smoke.mjs                # checks the wasm builds
+node tools/web_match.mjs --opp fruit --ms 300   # strength of the browser build vs Fruit (or --opp crafty)
 ```
+
+**Local engines.** `node tools/engine-bridge.mjs` (configure it from `tools/engine-bridge.example.json`) serves
+native engines on `127.0.0.1` so the page can use them: the multi-threaded native Experion, or Crafty, which
+cannot be bundled because of its license. Press "Local engines" on the play page to connect.
 
 ## Download
 
