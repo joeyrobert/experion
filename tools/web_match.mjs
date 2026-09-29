@@ -8,6 +8,7 @@
 // Fruit runs as its WebAssembly build. Crafty is not redistributable, so it runs natively
 // through tools/match/uci_bridge. Results are printed as W-L-D from Experion's side.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fork, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -24,8 +25,8 @@ const games = +opt('games', 48);
 const procs = +opt('procs', 5);
 const wasm = (file) => WebAssembly.compile(fs.readFileSync(path.join(root, file)));
 
-function uciScript(setup, moves, ms) {
-  return ['uci', ...setup, 'isready', 'position startpos' + (moves.length ? ' moves ' + moves.join(' ') : ''), `go movetime ${ms}`, 'quit', ''].join('\n');
+function uciScript(setup, moves, ms, quit = true) {
+  return ['uci', ...setup, 'isready', 'position startpos' + (moves.length ? ' moves ' + moves.join(' ') : ''), `go movetime ${ms}`, ...(quit ? ['quit'] : []), ''].join('\n');
 }
 
 async function wasmEngine(file, setup) {
@@ -48,15 +49,19 @@ function nativeEngine(cmd, cwd) {
       for (const line of buf.split('\n')) if (line.startsWith('bestmove')) finish(line.split(/\s+/)[1]);
     });
     child.on('exit', () => finish(null));
-    child.stdin.write(uciScript([], moves, ms));
+    child.stdin.write(uciScript([], moves, ms, false)); // native engines answer asynchronously, so quit only after bestmove
   });
 }
 
 async function makeOpponent() {
   if (oppName === 'fruit') return wasmEngine('site/engines/fruit/fruit.wasm', []);
   if (oppName === 'crafty') {
+    // Crafty writes numbered log/game files into its working directory, so every worker gets a
+    // private scratch directory that shares the real book directory.
     const dir = path.join(root, 'tools/match/Crafty-Chess-25.2');
-    return nativeEngine([path.join(root, 'tools/match/uci_bridge'), '--needs-restart', path.join(dir, 'crafty252')], dir);
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'webmatch-crafty-'));
+    if (fs.existsSync(path.join(dir, 'books'))) fs.symlinkSync(path.join(dir, 'books'), path.join(scratch, 'books'));
+    return nativeEngine([path.join(root, 'tools/match/uci_bridge'), '--needs-restart', path.join(dir, 'crafty252')], scratch);
   }
   throw new Error('unknown opponent ' + oppName);
 }
@@ -69,7 +74,7 @@ async function play(white, black, line) {
   while (!g.isGameOver() && moves.length < 320) {
     const engine = g.turn() === 'w' ? white : black;
     const uci = await engine(moves);
-    if (!uci || uci === '0000') return g.turn() === 'w' ? 0 : 1; // no move: treat as a loss for the mover
+    if (!uci || uci === '0000') throw new Error(`${g.turn() === 'w' ? 'white' : 'black'} engine returned no move at ply ${moves.length} after: ${moves.join(' ')}`);
     try { apply(uci); } catch { return g.turn() === 'w' ? 1 : 0; } // illegal move loses (opponent already applied)
   }
   if (g.isCheckmate()) return g.turn() === 'w' ? 0 : 1; // side to move is mated
