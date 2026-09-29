@@ -1,6 +1,0 @@
-=== concat quiet+tac3m 2026-09-17 17:45:57 ===
-{'sources': ['/Users/joey/Repos/experion/datasets/ccrl_quiet8m', '/Users/joey/Repos/experion/datasets/ccrl_tactics3m'], 'upsample_rest': 1, 'positions': {'train': 10103391, 'val': 546609}}
-{"resume": "/Users/joey/Repos/experion/nets/enn4_tactics_mix25.bin"}
-{"freeze_linear": true}
-{"epoch": 1, "train_loss": 0.03331858537584564, "val_loss": 0.03328479594364358, "seconds": 30.99}
-{"epoch": 2, "train_loss": 0.03299417265721007, "val_loss": 0.0331959204259587, "seconds": 30.36}

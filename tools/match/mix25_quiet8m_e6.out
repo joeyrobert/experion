@@ -1,9 +1,0 @@
-=== quiet8m +6ep 2026-09-17 17:25:20 ===
-{"resume": "/Users/joey/Repos/experion/datasets/enn4_mix25_quiet8m/best.pt"}
-{"freeze_linear": true}
-{"epoch": 1, "train_loss": 0.033664897606284015, "val_loss": 0.03378667921299612, "seconds": 22.65}
-{"epoch": 2, "train_loss": 0.033588432410713215, "val_loss": 0.03373791570999148, "seconds": 22.08}
-{"epoch": 3, "train_loss": 0.03352982449878556, "val_loss": 0.033706384245939094, "seconds": 22.1}
-{"epoch": 4, "train_loss": 0.033489181326247196, "val_loss": 0.033686641822289365, "seconds": 20.94}
-{"epoch": 5, "train_loss": 0.033464603288053354, "val_loss": 0.033677374740233045, "seconds": 21.75}
-{"epoch": 6, "train_loss": 0.03345224341834884, "val_loss": 0.03367336419911312, "seconds": 21.6}

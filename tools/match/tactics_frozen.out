@@ -1,9 +1,0 @@
-=== freeze-linear tactics ft 2026-09-17 09:18:29 ===
-{"resume": "/Users/joey/Repos/experion/nets/enn4_w192all.bin"}
-{"freeze_linear": true}
-{"epoch": 1, "train_loss": 0.02474893836559733, "val_loss": 0.024856882906542102, "seconds": 104.79}
-{"epoch": 2, "train_loss": 0.02412320625891982, "val_loss": 0.024596236037334705, "seconds": 76.09}
-{"epoch": 3, "train_loss": 0.02393066665263948, "val_loss": 0.02447774325865435, "seconds": 76.07}
-{"epoch": 4, "train_loss": 0.023827782258580933, "val_loss": 0.0244099788243099, "seconds": 76.0}
-{"epoch": 5, "train_loss": 0.023768951161448202, "val_loss": 0.024378750481888267, "seconds": 76.22}
-{"epoch": 6, "train_loss": 0.02373945664829492, "val_loss": 0.02436629051339831, "seconds": 76.17}
