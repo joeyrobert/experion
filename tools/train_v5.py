@@ -205,10 +205,10 @@ def main():
     best = 1e9
     for epoch in range(1, a.epochs + 1):
         t0 = time.time()
-        perm = torch.randperm(N, device=dev)
+        perm = torch.randperm(N)
         run = 0.0
         for bi in range(steps_per_epoch):
-            ix = perm[bi * a.batch:(bi + 1) * a.batch]
+            ix = perm[bi * a.batch:(bi + 1) * a.batch].to(dev)
             code, stm, target = batch(tr, ix)
             for g in opt.param_groups:
                 g['lr'] = lr_at(step)

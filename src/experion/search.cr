@@ -8,9 +8,9 @@
 
 module Experion
   NNUE_VERIFY = !!ENV["EXPERION_NNUE_VERIFY"]?
-  NO_OVERLAY = !!ENV["EXPERION_NO_OVERLAY"]?
+  NO_OVERLAY = !ENV["EXPERION_OVERLAY"]?
   NO_VETO = !ENV["EXPERION_VETO"]?
-  DIS = (ENV["EXPERION_DISABLE"]? || "").split(",")
+  DIS = (ENV["EXPERION_DISABLE"]? || "chk,recap,sing,lmp").split(",")
   DIS_NMP = DIS.includes?("nmp")
   DIS_LMR = DIS.includes?("lmr")
   DIS_FUT = DIS.includes?("fut")
