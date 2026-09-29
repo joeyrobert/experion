@@ -18,7 +18,20 @@ the executable, so there is nothing else to install. Point any UCI GUI at it.
 
 ## Strength
 
-RESULTS_TABLE
+Local matches with fastchess at 10+0.1 (Apple silicon, Experion on 4 threads, 256 MB hash),
+100 games each, the default release binary with its embedded net, no overrides:
+
+| opponent | result | score | Elo |
+| --- | --- | --- | --- |
+| Fruit 2.1 | 69–17–14 | 76% | +200 ± 74 |
+| Crafty 25.2 (fair clocks) | 58–32–10 | 63% | +92 ± 68 |
+
+Both opponents run single-threaded on their default settings. Crafty is driven through
+an XBoard bridge that gives it its own clock. These are local head-to-head results, not
+rating-list numbers, and the intervals are 95%. Earlier in development Experion scored
+21% against Fruit and 5–18% against Crafty; the jump came from correcting the training
+labels, a faster and better-targeted network, and removing search features that
+measured as losses (see [docs/TRAINING.md](docs/TRAINING.md)).
 
 ## Features
 
