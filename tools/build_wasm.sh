@@ -4,10 +4,12 @@
 # Needs Crystal >= 1.21, wasm-ld (lld) and a wasm32-wasip1 libc (wasi-libc):
 #   brew install lld wasi-libc      (macOS)
 #   apt install lld wasi-libc       (Debian/Ubuntu)
-# Set WASI_LIB to the directory holding wasm32-wasip1/libc.a if it is not found.
+# Or set WASI_SDK to a wasi-sdk directory (its bin/ must be on PATH for wasm-ld), or WASI_LIB to the
+# directory holding libc.a for wasm32-wasip1.
 set -e
 cd "$(dirname "$0")/.."
 WASI_LIB=${WASI_LIB:-}
+[ -z "$WASI_LIB" ] && [ -n "$WASI_SDK" ] && WASI_LIB="$WASI_SDK/share/wasi-sysroot/lib/wasm32-wasip1"
 if [ -z "$WASI_LIB" ]; then
   for d in /opt/homebrew/opt/wasi-libc/share/wasi-sysroot/lib/wasm32-wasip1 \
            /usr/local/opt/wasi-libc/share/wasi-sysroot/lib/wasm32-wasip1 \

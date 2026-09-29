@@ -184,11 +184,21 @@ class Bridge
       my = param(tokens, my_key) || param(tokens, opp_key)
       opp = param(tokens, opp_key) || param(tokens, my_key)
 
+      # fixed limits (web player): `st` seconds per move and `sd` depth must reach the
+      # child BEFORE the moves, since an XBoard engine starts thinking on the last move
+      movetime = param(tokens, "movetime").try(&.to_i?)
+      depth = param(tokens, "depth").try(&.to_i?)
+      limits = ->{
+        to_child("st #{movetime / 1000.0}") if movetime
+        to_child("sd #{depth}") if depth
+      }
+
       # deliver buffered position changes only now — the child must not
       # think during book replay or between games
       if @pending_reset
         reset_child
         to_child("force")
+        limits.call
         @pending_moves.each { |mv| to_child(mv) }
         if my
           safe = ((my.to_i? || 0) - 300).clamp(1, 10_000_000)
@@ -197,6 +207,7 @@ class Bridge
         end
         to_child("go")
       else
+        limits.call
         @pending_moves.each { |mv| to_child(mv) }
         if my
           safe = ((my.to_i? || 0) - 300).clamp(1, 10_000_000)

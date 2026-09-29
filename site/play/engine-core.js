@@ -1,8 +1,9 @@
 // Runs the Experion WebAssembly build against a preloaded UCI script.
 //
-// The module is a WASI command: it reads a script from stdin (EOF ends it) and writes UCI
-// output to stdout. We provide the 11 WASI imports it needs and stream stdout lines to a
-// callback as they are written, so search info arrives live while the search is running.
+// The module is a WASI command: it reads a script from stdin (EOF ends it) and writes its
+// output to stdout. We provide the small set of WASI imports these engines need and stream
+// stdout lines to a callback as they are written, so search info arrives live while the
+// search is running. Works for any single-threaded WASI engine (Experion, Fruit, ...).
 
 class ExitSignal {
   constructor(code) { this.code = code; }
@@ -76,6 +77,14 @@ export function runEngine(module, script, onLine) {
       dv.setUint32(nwritten, total, true);
       return 0;
     },
+    // Engines that touch the filesystem (opening books, logs) just see an empty sandbox.
+    fd_close: () => 0,
+    fd_seek: () => 70, // ESPIPE
+    fd_prestat_get: () => 8, // EBADF: no preopened directories
+    fd_prestat_dir_name: () => 8,
+    path_open: () => 44, // ENOENT
+    poll_oneoff: () => 52, // ENOSYS
+    sched_yield: () => 0,
     proc_exit: (code) => { throw new ExitSignal(code); },
     random_get: (buf, len) => { crypto.getRandomValues(bytes().subarray(buf, buf + len)); return 0; },
   };

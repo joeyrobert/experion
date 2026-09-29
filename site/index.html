@@ -19,6 +19,7 @@
         <a class="current" href="./">About</a>
         <a href="#download">Download</a>
         <a href="play/">Play</a>
+        <a href="credits.html">Credits</a>
         <a href="https://github.com/joeyrobert/experion">Source</a>
       </nav>
     </div>
@@ -32,7 +33,7 @@
           positions from CCRL games. It beats Fruit 2.1 and Crafty 25.2 in local matches, ships as a single
           self-contained executable, and runs in your browser.</p>
         <div class="cta">
-          <a class="btn primary" href="play/">Play against it</a>
+          <a class="btn primary" href="play/">Play in your browser</a>
           <a class="btn" href="#download">Download</a>
           <a class="btn" href="https://github.com/joeyrobert/experion">Source on GitHub</a>
         </div>
@@ -68,6 +69,19 @@
           One consumer GPU trains the net in about half an hour. The full pipeline is in the repository.</p></div>
         <div class="card"><h3>Runs anywhere</h3><p>Static Linux binary, macOS for Apple silicon and Intel, Windows, and a WebAssembly build for this
           site. The network is embedded, so there is nothing else to install.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="engines">
+      <h2>Engine arena</h2>
+      <p>The <a href="play/">play page</a> lets each side be a human or an engine, so you can play any of them or
+        watch two play each other. Everything runs in your browser.</p>
+      <div class="cards">
+        <div class="card"><h3>Experion</h3><p>This engine, compiled to WebAssembly with its network.</p></div>
+        <div class="card"><h3>Fruit 2.1</h3><p>Fabien Letouzey's 2005 engine (GPL), compiled to WebAssembly from its original source.</p></div>
+        <div class="card"><h3>CeruleanJS</h3><p>Joey Robert's JavaScript engine (GPL-3.0), with its Polyglot opening book.</p></div>
+        <div class="card"><h3>Your own engines</h3><p>A small local bridge lets the page drive native engines on your computer, such as Crafty or the
+          multi-threaded desktop Experion. <a href="credits.html">Credits and sources</a>.</p></div>
       </div>
     </section>
 

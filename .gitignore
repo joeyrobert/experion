@@ -62,3 +62,7 @@ nnue*.bin*
 /site/play/experion.wasm
 
 .DS_Store
+
+# local engine bridge configuration
+/tools/engine-bridge.json
+/site/engines/fruit/fruit.wasm
