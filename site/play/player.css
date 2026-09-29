@@ -72,3 +72,7 @@ select { background: var(--panel-2); color: var(--text); border: 1px solid var(-
 .result-title { font-size: clamp(2.2rem, 9vw, 4rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; color: #f4f7fb; }
 .result-title.win { color: var(--accent); }
 .result-sub { margin-top: 6px; color: #b6c2d1; font-size: clamp(.95rem, 2.6vw, 1.15rem); }
+
+.swatch { width: 14px; height: 14px; border-radius: 50%; flex: none; box-sizing: border-box; border: 2px solid #8896a8; }
+.swatch.white { background: #fdfdfb; }
+.swatch.black { background: #14171b; }

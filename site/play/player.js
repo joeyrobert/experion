@@ -103,7 +103,11 @@ function renderTags() {
   const top = board.orientation === 'w' ? 'b' : 'w';
   const bottom = board.orientation;
   for (const [el, color] of [[$('tag-top'), top], [$('tag-bottom'), bottom]]) {
-    el.textContent = (color === 'w' ? '○ ' : '● ') + playerLabel(color);
+    el.innerHTML = '';
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch ' + (color === 'w' ? 'white' : 'black');
+    swatch.setAttribute('aria-label', color === 'w' ? 'White' : 'Black');
+    el.append(swatch, document.createTextNode(playerLabel(color)));
     el.classList.toggle('active', !game.isGameOver() && game.turn() === color);
   }
 }
