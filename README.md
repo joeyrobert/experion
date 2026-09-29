@@ -11,6 +11,17 @@ evaluation (NNUE) trained from scratch on CCRL game data.
         |_|                    
 ```
 
+## Play it
+
+A playable version runs in the browser at **https://joeyrobert.github.io/experion/** (the engine is compiled
+to WebAssembly; single thread, same network and search). To run the site locally:
+
+```sh
+tools/build_wasm.sh                      # needs Crystal, lld and wasi-libc; writes site/play/experion.wasm
+python3 -m http.server --directory site  # then open http://localhost:8000/play/
+node tools/wasm_smoke.mjs                # checks the wasm build
+```
+
 ## Download
 
 Prebuilt executables for Linux (static), macOS (Apple silicon and Intel) and

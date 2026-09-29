@@ -411,27 +411,31 @@ module Experion
       end
       return think(root, game_hashes, limits, false) if eff <= 1
 
-      shared_stop = @stop
-      while @helpers.size < eff - 1
-        w = Searcher.new(@tt, shared_stop, @helpers.size % 2 == 0 ? 1 : 0, false)
-        w.verbose = false
-        w.raw_output = true
-        @helpers << w
-      end
-
-      results = StaticArray(UInt16, 16).new(Moves::MOVE_NONE)
-      workers = Array(Thread).new(eff - 1)
-      (1...eff).each do |i|
-        helper = @helpers[i - 1]
-        workers << Thread.new do
-          results[i] = helper.think(root, game_hashes, limits, false)
+      {% if flag?(:wasi) %}
+        think(root, game_hashes, limits, false)
+      {% else %}
+        shared_stop = @stop
+        while @helpers.size < eff - 1
+          w = Searcher.new(@tt, shared_stop, @helpers.size % 2 == 0 ? 1 : 0, false)
+          w.verbose = false
+          w.raw_output = true
+          @helpers << w
         end
-      end
 
-      best = think(root, game_hashes, limits, false)
-      shared_stop.set(true)
-      workers.each(&.join)
-      best != Moves::MOVE_NONE ? best : (results.find { |m| m != Moves::MOVE_NONE } || Moves::MOVE_NONE)
+        results = StaticArray(UInt16, 16).new(Moves::MOVE_NONE)
+        workers = Array(Thread).new(eff - 1)
+        (1...eff).each do |i|
+          helper = @helpers[i - 1]
+          workers << Thread.new do
+            results[i] = helper.think(root, game_hashes, limits, false)
+          end
+        end
+
+        best = think(root, game_hashes, limits, false)
+        shared_stop.set(true)
+        workers.each(&.join)
+        best != Moves::MOVE_NONE ? best : (results.find { |m| m != Moves::MOVE_NONE } || Moves::MOVE_NONE)
+      {% end %}
     end
 
     # --- public entry -------------------------------------------------------------

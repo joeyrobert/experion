@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Play Experion</title>
+  <meta name="description" content="Play chess against Experion, an NNUE chess engine written in Crystal, running entirely in your browser via WebAssembly.">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="player.css">
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="../"><span class="knight">&#9822;&#65038;</span> Experion</a>
+      <nav class="site">
+        <a href="../">About</a>
+        <a href="../#download">Download</a>
+        <a class="current" href="./">Play</a>
+        <a href="https://github.com/joeyrobert/experion">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap play">
+    <section class="board-col">
+      <div id="status" role="status" aria-live="polite">Loading&hellip;</div>
+      <div class="board-row">
+        <div class="eval" title="Engine evaluation: the white part of the bar grows as White gets better">
+          <div id="eval-fill"></div>
+        </div>
+        <div class="board-holder">
+          <div id="board" aria-label="Chess board"></div>
+          <div id="promotion" hidden></div>
+        </div>
+      </div>
+      <div id="eval-label"></div>
+      <div id="info"></div>
+    </section>
+
+    <aside class="side-col">
+      <div class="panel">
+        <div class="row">
+          <label>Play as
+            <select id="side"><option value="w">White</option><option value="b">Black</option></select>
+          </label>
+          <label>Level
+            <select id="level">
+              <option value="beginner">Beginner (depth 1)</option>
+              <option value="casual">Casual (depth 4)</option>
+              <option value="club" selected>Club (0.3 s)</option>
+              <option value="strong">Strong (2 s)</option>
+              <option value="maximum">Maximum (8 s)</option>
+            </select>
+          </label>
+        </div>
+        <div class="row buttons">
+          <button id="new" class="btn primary">New game</button>
+          <button id="undo" class="btn">Undo</button>
+          <button id="flip" class="btn">Flip</button>
+          <button id="go" class="btn">Engine move</button>
+        </div>
+        <div class="row buttons">
+          <button id="auto" class="btn">Engine vs. engine</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Moves</h2>
+        <div id="moves"></div>
+        <div class="row buttons small">
+          <button id="copy-pgn" class="btn">Copy PGN</button>
+          <button id="copy-fen" class="btn">Copy FEN</button>
+          <button id="load-fen" class="btn">Load FEN</button>
+        </div>
+      </div>
+
+      <p class="note">
+        The engine runs in your browser as WebAssembly on a single thread, with the same
+        network and search as the desktop builds. The desktop engine, using several threads,
+        is considerably stronger.
+      </p>
+    </aside>
+  </main>
+
+  <footer class="site">
+    <div class="wrap"><span>Experion is MIT licensed. Rules by <a href="https://github.com/jhlywa/chess.js">chess.js</a>.</span><span><a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a></span></div>
+  </footer>
+
+  <script type="module" src="player.js"></script>
+</body>
+</html>
