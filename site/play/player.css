@@ -76,3 +76,21 @@ select { background: var(--panel-2); color: var(--text); border: 1px solid var(-
 .swatch { width: 14px; height: 14px; border-radius: 50%; flex: none; box-sizing: border-box; border: 2px solid #8896a8; }
 .swatch.white { background: #fdfdfb; }
 .swatch.black { background: #14171b; }
+
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 12px; font-size: .9rem; }
+.checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.checks input { accent-color: var(--accent); }
+#tour-progress { margin-top: 10px; }
+#tour-results { margin-top: 16px; }
+.table-scroll { overflow-x: auto; }
+table.crosstable { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.crosstable th, table.crosstable td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+table.crosstable th { color: var(--muted); font-weight: 600; font-size: .75rem; }
+table.crosstable td.name, table.crosstable th.name { text-align: left; }
+table.crosstable td.self { background: var(--panel-2); }
+table.crosstable td.pts { font-weight: 700; }
+table.crosstable tr.playing td.name { color: var(--accent); }
+#tour-log-box { margin: 12px 0; font-size: .85rem; color: var(--muted); }
+#tour-log-box summary { cursor: pointer; }
+#tour-log { margin: 8px 0 0; padding-left: 28px; max-height: 220px; overflow-y: auto; }
+#tour-log li.pending { opacity: .55; }

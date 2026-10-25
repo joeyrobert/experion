@@ -36,3 +36,17 @@ if (fs.existsSync(fruitPath)) {
   if (!fb || !/^bestmove [a-h][1-8][a-h][1-8]/.test(fb)) { console.error('FAIL: fruit bestmove', out.join('\n')); process.exit(1); }
   console.log('ok:', fb);
 }
+
+// Stash releases (tools/build_stash_wasm.sh): two searches in one run exercise the inline engine thread.
+const stashDir = new URL('../site/engines/stash/', import.meta.url);
+for (const name of fs.existsSync(stashDir) ? fs.readdirSync(stashDir).filter((f) => f.endsWith('.wasm')) : []) {
+  const stash = await WebAssembly.compile(fs.readFileSync(new URL(name, stashDir)));
+  const out = [];
+  runEngine(stash, 'uci\nisready\nposition startpos moves e2e4 e7e5\ngo movetime 200\nposition startpos moves e2e4\ngo depth 6\nquit\n', (l) => out.push(l));
+  const moves = out.filter((l) => /^bestmove [a-h][1-8][a-h][1-8]/.test(l));
+  if (!out.some((l) => l.startsWith('id name Stash')) || moves.length !== 2 || out.some((l) => l.includes('(null)'))) {
+    console.error('FAIL:', name, out.filter((l) => !l.startsWith('option')).join('\n'));
+    process.exit(1);
+  }
+  console.log('ok:', name, moves.join(', '));
+}

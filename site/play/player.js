@@ -2,6 +2,7 @@ import { Chess } from './vendor/chess.js';
 import { Board } from './board.js';
 import { ENGINES, createEngine } from './engines.js';
 import { loadOpenings } from './openings.js';
+import { roundRobin, standings, eloFromScore, formatPoints } from './tournament.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +29,7 @@ let lastEval = null; // {cpWhite, mate}
 let engineError = null;
 let currentLine = null;
 let bridgeUrl = null;
+let tour = null; // round-robin in progress or finished, see the tournament section below
 
 const board = new Board($('board'), {
   targetsFor: (sq) => (canHumanMove() ? game.moves({ square: sq, verbose: true }).map((m) => m.to) : []),
@@ -43,8 +45,10 @@ function playerLabel(color) {
   return humanCount() === 2 ? (color === 'w' ? 'White' : 'Black') : 'You';
 }
 
+const touring = () => !!(tour && tour.running);
+
 function canHumanMove() {
-  return !thinking && !game.isGameOver() && players[game.turn()] === 'human' && !engineError;
+  return !touring() && !thinking && !game.isGameOver() && players[game.turn()] === 'human' && !engineError;
 }
 
 function uciHistory() {
@@ -117,7 +121,11 @@ function renderControls() {
   $('pause').disabled = !anyEngine;
   $('pause').textContent = paused ? (game.history().length ? 'Resume' : 'Start') : 'Pause';
   $('pause').classList.toggle('active', paused);
-  $('go').disabled = thinking;
+  $('go').disabled = thinking || touring();
+  for (const id of ['white', 'black', 'level', 'openings', 'new', 'undo', 'load-fen', 'tour-games']) $(id).disabled = touring();
+  for (const box of $('tour-engines').querySelectorAll('input')) box.disabled = touring();
+  $('tour-start').disabled = touring();
+  $('tour-stop').disabled = !touring();
 }
 
 function renderMoves(hist) {
@@ -197,6 +205,10 @@ function instanceFor(id) {
 function bookMove() {
   if ($('openings').value !== 'lines') return null;
   const hist = uciHistory();
+  if (touring()) {
+    const line = openings[tour.games[tour.index].opening];
+    return line && line.length > hist.length && hist.every((m, i) => m === line[i]) ? line[hist.length] : null;
+  }
   const follows = (line) => line.length > hist.length && hist.every((m, i) => m === line[i]);
   if (!currentLine || !follows(currentLine)) {
     const candidates = openings.filter(follows);
@@ -239,6 +251,7 @@ async function engineMove(forceId) {
     thinking = false;
     if (!uci || !playUci(uci)) {
       if (uci) engineError = `${nameOf(id)} returned a move (${uci}) that is not legal here.`;
+      else if (touring()) engineError = `${nameOf(id)} did not return a move.`;
     }
     render();
     afterMove();
@@ -247,11 +260,17 @@ async function engineMove(forceId) {
     thinking = false;
     engineError = `${nameOf(id)} could not run: ${err.message}.` + (id.startsWith('bridge:') ? '' : ' Open this page over http(s), not from a file.');
     render();
+    if (touring()) tournamentGameOver(side);
   }
 }
 
 function afterMove() {
-  if (game.isGameOver() || engineError) { render(); return; }
+  if (touring() && !engineError && game.history().length >= MAX_TOUR_PLIES) { tournamentGameOver(); return; }
+  if (game.isGameOver() || engineError) {
+    render();
+    if (touring()) tournamentGameOver(engineError ? game.turn() : null);
+    return;
+  }
   if (paused || thinking) return;
   if (players[game.turn()] !== 'human') setTimeout(() => { if (!paused && !thinking) engineMove(); }, humanCount() === 0 ? 300 : 120);
 }
@@ -376,6 +395,182 @@ async function copy(text, button) {
   setTimeout(() => { button.textContent = old; }, 1200);
 }
 
+// ---- tournaments ------------------------------------------------------------------------------
+//
+// A round robin between the checked engines, played one game at a time on the main board at the
+// strength and openings chosen above. Results survive a reload (localStorage), and a stopped or
+// interrupted tournament resumes from the game it was on.
+
+const MAX_TOUR_PLIES = 600; // adjudicate a draw after 300 moves
+const TOUR_KEY = 'experion.tournament';
+const TOUR_DEFAULT = ['experion', 'fruit', 'stash-21', 'stash-25'];
+const unfinished = () => !!(tour && tour.index < tour.games.length);
+
+function saveTour() {
+  try {
+    if (tour) localStorage.setItem(TOUR_KEY, JSON.stringify({ ...tour, running: false, timer: undefined }));
+    else localStorage.removeItem(TOUR_KEY);
+  } catch { /* storage unavailable */ }
+}
+
+function restoreTour() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOUR_KEY));
+    if (saved && Array.isArray(saved.ids) && Array.isArray(saved.games)) tour = { ...saved, running: false };
+  } catch { /* nothing saved, or storage unavailable */ }
+}
+
+function fillTourEngines() {
+  const box = $('tour-engines');
+  const checked = new Set(tour ? tour.ids : [...box.querySelectorAll('input:checked')].map((i) => i.value));
+  if (!box.children.length && !tour) TOUR_DEFAULT.forEach((id) => checked.add(id));
+  box.innerHTML = '';
+  for (const def of registry.values()) {
+    const label = document.createElement('label');
+    label.title = def.blurb || '';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = def.id;
+    input.checked = checked.has(def.id);
+    label.append(input, document.createTextNode(def.name));
+    box.appendChild(label);
+  }
+}
+
+function startTournament() {
+  if (!unfinished()) {
+    const ids = [...$('tour-engines').querySelectorAll('input:checked')].map((i) => i.value);
+    if (ids.length < 2) { $('tour-progress').textContent = 'Pick at least two engines.'; return; }
+    tour = {
+      ids, games: roundRobin(ids, +$('tour-games').value, openings.length), index: 0,
+      level: $('level').value, openings: $('openings').value, date: new Date().toISOString().slice(0, 10),
+    };
+  }
+  const missing = tour.ids.filter((id) => !registry.has(id));
+  if (missing.length) { $('tour-progress').textContent = 'Connect local engines first: ' + missing.join(', ') + '.'; return; }
+  $('level').value = tour.level;
+  $('openings').value = tour.openings;
+  tour.running = true;
+  saveTour();
+  playTourGame();
+}
+
+function playTourGame() {
+  const g = tour.games[tour.index];
+  $('white').value = g.white;
+  $('black').value = g.black;
+  newGame();
+  renderTournament();
+}
+
+function stopTournament() {
+  if (!touring()) return;
+  clearTimeout(tour.timer);
+  tour.running = false;
+  cancelSearch();
+  paused = true;
+  saveTour();
+  render();
+  renderTournament();
+}
+
+function drawReason() {
+  if (game.isStalemate()) return 'stalemate';
+  if (game.isThreefoldRepetition()) return 'repetition';
+  if (game.isInsufficientMaterial()) return 'insufficient material';
+  if (game.isDraw()) return 'fifty-move rule';
+  return 'adjudicated after ' + MAX_TOUR_PLIES / 2 + ' moves';
+}
+
+// Records the game on the board. `loser` is the colour whose engine failed (it forfeits), if any.
+function tournamentGameOver(loser = null) {
+  const g = tour.games[tour.index];
+  if (g.result) return;
+  if (loser) { g.result = loser === 'w' ? '0-1' : '1-0'; g.reason = 'forfeit: ' + engineError; }
+  else if (game.isCheckmate()) { g.result = game.turn() === 'w' ? '0-1' : '1-0'; g.reason = 'checkmate'; }
+  else { g.result = '1/2-1/2'; g.reason = drawReason(); }
+  g.moves = Math.ceil(game.history().length / 2);
+  const headers = {
+    Event: 'Experion web tournament', Site: location.origin + location.pathname, Date: tour.date.replace(/-/g, '.'),
+    Round: String(tour.index + 1), White: nameOf(g.white), Black: nameOf(g.black), Result: g.result,
+    TimeControl: $('level').selectedOptions[0].textContent, Termination: g.reason,
+  };
+  for (const [k, v] of Object.entries(headers)) game.setHeader(k, v);
+  g.pgn = game.pgn();
+  tour.index++;
+  if (!unfinished()) tour.running = false;
+  saveTour();
+  render();
+  renderTournament();
+  if (touring()) tour.timer = setTimeout(() => { if (touring()) playTourGame(); }, 2500);
+}
+
+function renderTournament() {
+  $('tour-start').textContent = unfinished() && tour.index > 0 ? 'Resume tournament' : 'Start tournament';
+  const progress = $('tour-progress');
+  const results = $('tour-results');
+  if (!tour) {
+    progress.textContent = 'Check two or more engines and press Start. Every game uses the strength and openings chosen above.';
+    results.hidden = true;
+    return;
+  }
+  const n = tour.games.length;
+  const current = touring() ? tour.games[tour.index] : null;
+  progress.textContent = current ? `Game ${tour.index + 1} of ${n}: ${nameOf(current.white)} vs ${nameOf(current.black)}`
+    : unfinished() ? `Stopped after ${tour.index} of ${n} games.` : `Finished: all ${n} games played.`;
+  results.hidden = false;
+  $('tour-title').textContent = `Tournament · ${tour.index} of ${n} games`;
+
+  const rows = standings(tour.ids, tour.games);
+  const table = $('tour-table');
+  table.innerHTML = '';
+  const head = table.insertRow();
+  const th = (text, cls) => { const c = document.createElement('th'); c.textContent = text; if (cls) c.className = cls; head.appendChild(c); };
+  th('#'); th('Engine', 'name'); th('Pts'); th('Games');
+  rows.forEach((_, i) => th(String(i + 1)));
+  th('W-D-L'); th('Perf');
+  rows.forEach((r, i) => {
+    const tr = table.insertRow();
+    if (current && (current.white === r.id || current.black === r.id)) tr.className = 'playing';
+    const td = (text, cls) => { const c = tr.insertCell(); c.textContent = text; if (cls) c.className = cls; return c; };
+    td(String(i + 1));
+    td(nameOf(r.id) || r.id, 'name').title = (registry.get(r.id) || {}).blurb || '';
+    td(formatPoints(r.points), 'pts');
+    td(String(r.games));
+    for (const opp of rows) {
+      if (opp.id === r.id) { td('', 'self'); continue; }
+      const v = r.vs.get(opp.id);
+      td(v ? `${formatPoints(v.points)}/${v.games}` : '·');
+    }
+    td(`${r.w}-${r.d}-${r.l}`);
+    const elo = eloFromScore(r.points, r.games);
+    td(elo === null ? (r.games ? (r.points ? '+∞' : '−∞') : '') : (elo >= 0 ? '+' : '−') + Math.abs(Math.round(elo)));
+  });
+
+  const log = $('tour-log');
+  log.innerHTML = '';
+  tour.games.forEach((g, i) => {
+    const li = document.createElement('li');
+    const names = `${nameOf(g.white) || g.white} – ${nameOf(g.black) || g.black}`;
+    li.textContent = g.result ? `${names}: ${g.result.replace('1/2-1/2', '½-½')} (${g.reason}, ${g.moves} moves)`
+      : names + (current && i === tour.index ? ': playing' : '');
+    if (!g.result) li.className = 'pending';
+    log.appendChild(li);
+  });
+}
+
+$('tour-start').onclick = startTournament;
+$('tour-stop').onclick = stopTournament;
+$('tour-pgn').onclick = () => copy(tour ? tour.games.filter((g) => g.pgn).map((g) => g.pgn).join('\n\n') + '\n' : '', $('tour-pgn'));
+$('tour-clear').onclick = () => {
+  if (touring()) stopTournament();
+  tour = null;
+  saveTour();
+  fillTourEngines();
+  render();
+  renderTournament();
+};
+
 // ---- local engine bridge (tools/engine-bridge.mjs) ------------------------------------------
 
 function addEngineOptions(list) {
@@ -397,6 +592,7 @@ async function connectBridge(url) {
   const list = await res.json();
   bridgeUrl = url.replace(/\/$/, '');
   addEngineOptions(list.map((e) => ({ id: 'bridge:' + e.id, remoteId: e.id, name: e.name + ' (local)', kind: 'bridge' })));
+  if (!touring()) fillTourEngines();
   return list.length;
 }
 
@@ -439,5 +635,8 @@ if (query.has('bridge')) {
   connectBridge(url || 'http://127.0.0.1:8787').then((n) => { $('bridge').textContent = `Local engines (${n})`; }).catch(() => {});
 }
 
+restoreTour();
+fillTourEngines();
+renderTournament();
 newGame();
 if (players[game.turn()] !== 'human') { paused = true; render(); } // a link never starts play by itself

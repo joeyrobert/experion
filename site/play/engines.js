@@ -24,6 +24,13 @@ export const ENGINES = [
     id: 'cerulean', name: 'CeruleanJS', kind: 'xboard-js', worker: '../engines/ceruleanjs/ceruleanjs.js',
     blurb: 'JavaScript, with an opening book (GPL)',
   },
+  // Stash by Morgan Houppin (GPL-3.0): four releases spanning roughly 2050-2950 CCRL Blitz.
+  ...[['14.0', 2058], ['17.0', 2297], ['21.0', 2713], ['25.0', 2933]].map(([v, elo]) => ({
+    id: 'stash-' + v.split('.')[0], name: 'Stash ' + v.split('.')[0], kind: 'uci-wasm',
+    wasm: `../engines/stash/stash-${v}.wasm`,
+    setup: ['setoption name Move Overhead value 0'],
+    blurb: `Morgan Houppin, v${v}, about ${elo} CCRL Blitz (GPL-3.0)`,
+  })),
 ];
 
 export function createEngine(def, extra = {}) {

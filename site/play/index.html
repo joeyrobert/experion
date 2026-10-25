@@ -40,6 +40,19 @@
       <div class="tag" id="tag-bottom"></div>
       <div id="eval-label"></div>
       <div id="info"></div>
+
+      <section id="tour-results" class="panel" hidden>
+        <h2 id="tour-title">Tournament</h2>
+        <div class="table-scroll"><table id="tour-table" class="crosstable"></table></div>
+        <details id="tour-log-box">
+          <summary>Games</summary>
+          <ol id="tour-log"></ol>
+        </details>
+        <div class="row buttons small">
+          <button id="tour-pgn" class="btn">Copy tournament PGN</button>
+          <button id="tour-clear" class="btn">Clear results</button>
+        </div>
+      </section>
     </section>
 
     <aside class="side-col">
@@ -80,6 +93,27 @@
         </div>
       </div>
 
+      <div class="panel" id="tour-panel">
+        <h2>Tournament</h2>
+        <div id="tour-engines" class="checks"></div>
+        <div class="row">
+          <label>Games per pairing
+            <select id="tour-games">
+              <option value="2">2 (one each colour)</option>
+              <option value="4" selected>4</option>
+              <option value="6">6</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+          </label>
+        </div>
+        <div class="row buttons">
+          <button id="tour-start" class="btn primary">Start tournament</button>
+          <button id="tour-stop" class="btn">Stop</button>
+        </div>
+        <p id="tour-progress" class="note"></p>
+      </div>
+
       <div class="panel">
         <h2>Moves</h2>
         <div id="moves"></div>
@@ -91,9 +125,10 @@
       </div>
 
       <p class="note">
-        Every engine runs in your browser. Experion and Fruit are compiled to WebAssembly and run on
-        a single thread; CeruleanJS is plain JavaScript with its opening book. Pick any pairing,
-        including engine against engine. The desktop Experion, using several threads, is stronger.
+        Every engine runs in your browser. Experion, Fruit and four releases of Stash are compiled to
+        WebAssembly and run on a single thread; CeruleanJS is plain JavaScript with its opening book.
+        Pick any pairing, including engine against engine, or run a round-robin tournament between
+        them at the selected strength. The desktop Experion, using several threads, is stronger.
         <button id="bridge" class="linklike">Local engines</button> connects native engines on your
         own computer (for example Crafty) through <code>tools/engine-bridge.mjs</code>.
       </p>
@@ -101,7 +136,7 @@
   </main>
 
   <footer class="site">
-    <div class="wrap"><span>Experion is MIT licensed. Fruit 2.1 by Fabien Letouzey (GPL), CeruleanJS by Joey Robert (GPL-3.0); rules by <a href="https://github.com/jhlywa/chess.js">chess.js</a>. <a href="../credits.html">Credits and sources</a></span><span><a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a></span></div>
+    <div class="wrap"><span>Experion is MIT licensed. Fruit 2.1 by Fabien Letouzey (GPL), Stash by Morgan Houppin (GPL-3.0), CeruleanJS by Joey Robert (GPL-3.0); rules by <a href="https://github.com/jhlywa/chess.js">chess.js</a>. <a href="../credits.html">Credits and sources</a></span><span><a href="https://github.com/joeyrobert/experion">github.com/joeyrobert/experion</a></span></div>
   </footer>
 
   <script type="module" src="player.js"></script>
