@@ -5,6 +5,7 @@ Experion itself is MIT licensed (see `LICENSE`). The following components keep t
 | component | where | license |
 | --- | --- | --- |
 | Fruit 2.1, Fabien Letouzey | `third_party/fruit-2.1` (source, one documented change), served as WebAssembly by the play page | GPL v2 or later |
+| Stash 14, 17, 21 and 25, Morgan Houppin | `third_party/stash-*` (source, see `third_party/STASH.md`), served as WebAssembly by the play page | GPL v3 or later |
 | CeruleanJS 0.2.0, Joey Robert | `site/engines/ceruleanjs` (web build) | GPL v3 |
 | gm2001 opening book, Oliver Deville | `site/engines/ceruleanjs/book.bin`, via ceruleanjs_opening_books | MIT (collection), see its README |
 | chess.js, Jeff Hlywa | `site/play/vendor/chess.js` | BSD 2-clause (header in the file) |
