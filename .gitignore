@@ -67,3 +67,5 @@ nnue*.bin*
 /tools/engine-bridge.json
 /site/engines/fruit/fruit.wasm
 /site/engines/stash/
+/site/engines/wyldchess/
+/site/engines/glaurung/

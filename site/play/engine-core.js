@@ -80,6 +80,8 @@ export function runEngine(module, script, onLine) {
     // Engines that touch the filesystem (opening books, logs) just see an empty sandbox.
     fd_close: () => 0,
     fd_seek: () => 70, // ESPIPE
+    fd_filestat_get: () => 8, // EBADF
+    fd_pread: () => 8,
     fd_prestat_get: () => 8, // EBADF: no preopened directories
     fd_prestat_dir_name: () => 8,
     path_open: () => 44, // ENOENT

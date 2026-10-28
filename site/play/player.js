@@ -36,7 +36,7 @@ const board = new Board($('board'), {
   onMove: (from, to) => humanMove(from, to),
 });
 
-const nameOf = (id) => (id === 'human' ? null : registry.get(id).name);
+const nameOf = (id) => (id === 'human' ? null : (registry.get(id) || { name: id }).name);
 const humanCount = () => (players.w === 'human') + (players.b === 'human');
 
 function playerLabel(color) {
@@ -403,7 +403,7 @@ async function copy(text, button) {
 
 const MAX_TOUR_PLIES = 600; // adjudicate a draw after 300 moves
 const TOUR_KEY = 'experion.tournament';
-const TOUR_DEFAULT = ['experion', 'fruit', 'stash-21', 'stash-25'];
+const TOUR_DEFAULT = ['experion', 'fruit', 'stash', 'wyldchess', 'glaurung'];
 const unfinished = () => !!(tour && tour.index < tour.games.length);
 
 function saveTour() {
