@@ -66,6 +66,7 @@ nnue*.bin*
 !/tools/match/benchmark.py
 !/tools/match/openings.pgn
 !/tools/match/openings.epd
+!/tools/match/README.md
 
 # browser engine is built by CI (tools/build_wasm.sh)
 /site/play/experion.wasm
@@ -78,3 +79,7 @@ nnue*.bin*
 /site/engines/stash/
 /site/engines/wyldchess/
 /site/engines/glaurung/
+
+# local training scratch dirs (trained nets ship via nets/ explicitly)
+/run_sp_test/
+/run*/

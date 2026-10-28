@@ -1,5 +1,6 @@
-#!/bin/zsh
+#!/bin/sh
 # Self-play SPRT: candidate (bin/experion) vs baseline (bin/experion_baseline).
+# (POSIX sh so this runs on Linux boxes too; fine under bash/zsh on macOS.)
 #
 # This exists because fixed-round-count ladder tests (run_match.sh) are too
 # noisy to trust for small/uncertain changes — this project's own findings
@@ -20,14 +21,17 @@
 # After a change is validated (SPRT accepts H1) or rejected (accepts H0),
 # re-snapshot the new baseline for the next change.
 set -e
-BASE=/Users/joey/Repos/experion
-FC=$BASE/tools/match/fastchess-mac-arm64/fastchess
+BASE=${BASE:-$(cd "$(dirname "$0")/../.." && pwd)}
+case "$(uname -s)" in
+  Darwin) FC=${FC:-$BASE/tools/match/fastchess-mac-arm64/fastchess} ;;
+  *)      FC=${FC:-$BASE/tools/match/fastchess-linux/fastchess} ;;
+esac
 
 TC=${1:-10+0.1}
 ELO0=${2:-0}
 ELO1=${3:-5}
 
-if [[ ! -f $BASE/bin/experion_baseline ]]; then
+if [ ! -f "$BASE/bin/experion_baseline" ]; then
   echo "no bin/experion_baseline found — run: cp bin/experion bin/experion_baseline (before your change)"
   exit 1
 fi

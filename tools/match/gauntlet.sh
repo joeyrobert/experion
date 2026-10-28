@@ -64,13 +64,12 @@ for OPP in $OPPS; do
   $FC \
     -engine cmd=$ENG name=Experion \
     -engine cmd=$OPP_BIN name=$OPP_NAME ${OPP_ARGS:+$OPP_ARGS} \
-    -each tc="$TC" option.Threads=1 option.Hash=64 \
+    -each tc="$TC" option.Threads=1 option.Hash=64 timemargin=20 \
     -rounds "$ROUNDS" -games 2 -repeat \
     -openings file=$BASE/tools/match/openings.pgn format=pgn order=random \
     -ratinginterval 20 -concurrency "$CONC" \
     -pgnout file=$PGN notation=uci append=true \
     -output format=cutechess \
-    -timemargin 20 \
     -recover \
     -maxmoves 300 2>&1 | tee "$BASE/tools/match/gauntlet_${OPP}.log" | grep -E "^(Score of|Elo difference|SPRT)" || true
   grep -E "^(Score of|Elo difference)" "$BASE/tools/match/gauntlet_${OPP}.log" >> "$SUMMARY" || true

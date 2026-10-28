@@ -226,7 +226,8 @@ def main():
                 print(json.dumps({'epoch': epoch, 'step': bi, 'of': steps_per_epoch, 'loss': loss.item(),
                                   'sec': round(time.time() - t0)}), flush=True)
         del perm
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         if not main_rank:
             continue
         vl = evaluate()

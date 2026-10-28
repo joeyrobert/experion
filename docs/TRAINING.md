@@ -68,10 +68,13 @@ from `docs/plans/2026_10_27_BEAT_GLAURUNG_WYLD_STASH.md` phase 3.
 ```sh
 # 1. Generate (append + rotate per worker; rerun with the same dir to resume,
 #    the position target is cumulative). Measured on the 4-core Linux test
-#    box: ~370 positions/s with 4 workers at the default 5k/10k node budget
-#    (a 10-core box at threads=10 reaches ~1k/s on the same build; the plan's
-#    150M target is its own overnight run).
-bin/experion gendata-v5 10000000 datasets/selfplay_v5 4
+#    box: ~370 positions/s with 4 workers at the default 5k/10k node budget.
+#    The plan measured ~3k pos/s on the 10-core Mac at 10 workers, so the
+#    150M target is a ~14h overnight run there.
+# Mac, plan target (10 workers, ~14h):
+bin/experion gendata-v5 150000000 datasets/selfplay_v5 10
+# Test box run that produced the current handoff batch (~12h, 15M):
+bin/experion gendata-v5 15000000 datasets/selfplay_v5 4
 
 # 2. QA before packing: byte-exact format contract against the engine,
 #    record/board validity, and the label sanity checks (score/material and
