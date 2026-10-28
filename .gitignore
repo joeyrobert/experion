@@ -48,6 +48,14 @@ nnue*.bin*
 /nets/*
 !/nets/experion.bin
 
+# native build artifacts for vendored opponents (binaries go to tools/match/ladder/)
+/third_party/glaurung-2.2/src/*.o
+/third_party/glaurung-2.2/src/glaurung
+/third_party/glaurung-2.2/src/.depend
+
+# Linux fastchess (built locally from source; mac binary is the checked-in one)
+/tools/match/fastchess-linux/
+
 # match tooling scratch: only the scripts below are tracked
 /tools/match/*
 !/tools/match/ab.sh

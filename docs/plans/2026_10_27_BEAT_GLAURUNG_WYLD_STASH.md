@@ -4,13 +4,24 @@
 
 | Phase | What | Status |
 | --- | --- | --- |
-| 0 | Fair, working harness for all three opponents (native) | Not started |
+| 0 | Fair, working harness for all three opponents (native) | Partially done on the Linux test box: glaurung22, wyldchess151, stash21 compiled from third_party and verified with UCI handshakes; run_match.sh made portable with a `stash` case; gauntlet.sh written; Linux fastchess being provisioned. The 20-game opponent health check and the Glaurung-in-fastchess stall test still need real matches |
 | Prev | Beat Crafty 25.2 and Fruit 2.1 (previous milestone, the baseline) | Done |
 | 1 | Baseline gauntlet (native, one thread each) incl. Fruit and Crafty reruns, plus a browser baseline | Not started |
 | 2 | Search fixes and additions, each SPRT-gated | Not started |
-| 3 | Self-generated training data and a new net | Not started |
+| 3 | Self-generated training data and a new net | Data tooling done: `bin/experion gendata-v5` (fixed-node self-play, record format + resume/rotate, all filters/adjudication per this plan), `tools/pack_v5.py` (dedup + per-game train/val split into the train_v5.py npy format), `tools/v5_qa.py` (format contract + label sanity, stdlib only). Generating data on the test box (4 cores, ~370 pos/s at 5k nodes); training runs on the GPU Mac |
 | 4 | Time management and the browser build (SIMD, per-move limits) | Not started |
 | 5 | Final confirmation gauntlet, ship net and binary, update README | Not started |
+
+## Environment note (2026-10-28)
+
+This phase was implemented and validated on a Linux test box (4 cores, 8 GB,
+no Crystal/torch installed until this session: Crystal 1.22.1 bundled toolchain
+at /home/llm/opt, CPU-only opponents compiled from third_party). Match harness
+scripts are now script-relative and pick the fastchess binary per platform. The
+150M-position data target is sized for a 10-core Mac (measured 3k pos/s there
+in the plan); the same command with threads=10 on the Mac reproduces it. The
+test box generated the first batch (~760k positions, QA-verified) to prove the
+pipeline end to end.
 
 Repo: `/Users/joey/Repos/experion` (Crystal UCI engine). Read `CLAUDE.md`, `README.md` and `docs/TRAINING.md` first.
 
@@ -200,3 +211,5 @@ The current labels are CCRL engine annotations. The next net should learn from E
 
 | Date | Change | Test | Games | Result | Kept |
 | --- | --- | --- | --- | --- | --- |
+| 2026-10-28 | gendata-v5, pack_v5.py, v5_qa.py (data tooling, Linux test box) | v5_qa: packboard contract ok on 6 known FENs; 760162 records, 0 field violations, 0 board violations; corr(score,material) 0.886, corr(score,result) 0.673; crystal spec green (665 examples, 0 failures); perft 6 exact (119060324) | 0 | throughput 370 pos/s (4 workers, 5k/10k nodes, 4-core box) | yes |
+| 2026-10-28 | opponents compiled locally: glaurung22, wyldchess151, stash21 | UCI handshakes ok (id/uciok/readyok/bestmove); glaurung exposes Threads default 4 + Ponder default true (pin both in fastchess); stash ~2 Mnps at depth 6; gauntlet.sh bakes option.Ponder=false + timemargin 20 for glaurung | 0 | harness ready for Phase 1 once local fastchess lands | yes |

@@ -53,6 +53,53 @@ cp run/epoch-006.bin nets/experion.bin && shards build --release
 - **Validation loss does not rank nets across targets.** Compare nets by playing them
   (`tools/match/ab.sh`), not by loss.
 
+## Self-play data (gendata-v5)
+
+The CCRL labels above are noisy and limited to what CCRL games contain. The
+self-play generator (`bin/experion gendata-v5`) produces the next generation of
+labels from Experion's own search: fixed node budget per move, the search score
+from the side-to-move's POV, plus the eventual game result. See the header of
+`src/experion/gendata_v5.cr` for the 64-byte record format and all tuning
+envs; the rules (random opening plies with a ±400 discard filter, skip
+positions in check / capture-promo best moves / mate scores, adjudication at
+|score| > 2500 for 4 plies and |score| < 10 for 10 plies after move 40) come
+from `docs/plans/2026_10_27_BEAT_GLAURUNG_WYLD_STASH.md` phase 3.
+
+```sh
+# 1. Generate (append + rotate per worker; rerun with the same dir to resume,
+#    the position target is cumulative). Measured on the 4-core Linux test
+#    box: ~370 positions/s with 4 workers at the default 5k/10k node budget
+#    (a 10-core box at threads=10 reaches ~1k/s on the same build; the plan's
+#    150M target is its own overnight run).
+bin/experion gendata-v5 10000000 datasets/selfplay_v5 4
+
+# 2. QA before packing: byte-exact format contract against the engine,
+#    record/board validity, and the label sanity checks (score/material and
+#    score/result correlations must be clearly positive).
+python3 tools/v5_qa.py datasets/selfplay_v5 --engine bin/experion
+
+# 3. Pack into the same npy triplets merge_v5.py writes (dedup by hash,
+#    train/val split by GAME).
+python3 tools/pack_v5.py datasets/selfplay_v5 datasets/v5_selfplay
+
+# 4. Train and gate, same as below:
+torchrun --nproc_per_node=2 tools/train_v5.py datasets/v5_selfplay run_sp --h 256 --epochs 6 --lam 0.1
+python3 tools/check_v5.py run_sp/epoch-006.pt 256
+# net-vs-net SPRT (candidate via EXPERION_NNUE vs the shipped net), then
+# gauntlet.sh / ab.sh before shipping anything.
+```
+
+Notes:
+
+- lambda: self-play scores are more self-consistent than CCRL cross-engine
+  scores, so the plan's optimum at lam 0.1 must be re-tested at 0.1, 0.2 and
+  0.3 with this data. Try self-play data alone first, then a 50/50 mix with
+  the CCRL set.
+- Do not judge a net by validation loss; play it (see Testing changes).
+- A self-play net that loses to the CCRL net at equal data volume is almost
+  always a label sign/POV bug; the v5_qa.py correlations are the guard, and a
+  start position minus a rook must still evaluate near -500.
+
 ## Testing changes
 
 - `tools/match/ab.sh "<env A>" "<env B>" 100` plays two configurations of the same binary

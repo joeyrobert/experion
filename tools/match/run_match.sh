@@ -14,8 +14,13 @@
 # remain untested post-fix and may still pay a real hardware-contention
 # cost). Override with THREADS=N to test other counts.
 set -e
-BASE=/Users/joey/Repos/experion
-FC=$BASE/tools/match/fastchess-mac-arm64/fastchess
+BASE=${BASE:-$(cd "$(dirname "$0")/../.." && pwd)}
+# Platform-specific fastchess (the mac-arm64 binary is checked in; Linux
+# hosts use a locally built fastchess-linux/, see tools/match/README).
+case "$(uname -s)" in
+  Darwin) FC=${FC:-$BASE/tools/match/fastchess-mac-arm64/fastchess} ;;
+  *)      FC=${FC:-$BASE/tools/match/fastchess-linux/fastchess} ;;
+esac
 BRIDGE=$BASE/tools/match/uci_bridge
 
 TC=${1:-10+0.1}
@@ -35,6 +40,7 @@ case ${3:-tscp} in
   teki)      OPP_BIN=$BASE/tools/match/ladder/teki2; OPP_NAME=Teki2_CCRL2400; OPP_ARGS="" ;;
   cinnamon)  OPP_BIN=$BASE/tools/match/ladder/cinnamon25; OPP_NAME=Cinnamon25_CCRL2336; OPP_ARGS="" ;;
   wyld)      OPP_BIN=$BASE/tools/match/ladder/wyldchess151; OPP_NAME=WyldChess151_CCRL2679; OPP_ARGS="" ;;
+  stash)     OPP_BIN=$BASE/tools/match/ladder/stash21; OPP_NAME=Stash21_CCRL2710; OPP_ARGS="" ;;
   *)         OPP_BIN=$3; OPP_NAME=${3:t}; OPP_ARGS="" ;;
 esac
 

@@ -47,6 +47,23 @@ module Experion
       path = args[3]? || "training_selfplay.txt"
       thr = args[4]?.try(&.to_i?) || 8
       GenData.run_selfplay(games, depth, path, thr)
+    when "gendata-v5"
+      # Fixed-node self-play in the packed binary format consumed by
+      # tools/pack_v5.py -> tools/train_v5.py. See src/experion/gendata_v5.cr.
+      target = args[1]?.try(&.to_i64?) || 1_000_000i64
+      dir = args[2]? || "datasets/selfplay_v5"
+      thr = args[3]?.try(&.to_i?) || 4
+      GenDataV5.run(target, dir, thr)
+    when "packboard"
+      # Format contract check: prints the 32 packed-board bytes for a FEN as
+      # hex, so tools/v5_qa.py can verify the Python decoders agree with the
+      # engine byte-for-byte.
+      fen = args[1]? || STARTPOS_FEN
+      pos = Position.new(fen)
+      buf = Pointer(UInt8).malloc(GenDataV5::REC_BYTES)
+      GenDataV5.pack_board_into(pos, buf)
+      32.times { |i| printf("%02x", buf[i]) }
+      puts
     else
       return false
     end

@@ -12,6 +12,7 @@ bin/experion perft 6 [fen]
 bin/experion bench              # movegen + perft throughput
 bin/experion epdtest suites/wac.epd 200
 bin/experion gendata-selfplay <games> <depth> <out> <threads>   # self-play data (not on Windows)
+bin/experion gendata-v5 <positions> <outdir> [threads]           # fixed-node self-play records; pack with tools/pack_v5.py (see docs/TRAINING.md)
 crystal run tools/texel_tune.cr --release -- /tmp/training.txt 60 40000 1.13
 ```
 

@@ -18,6 +18,7 @@ require "./experion/san"
 require "./experion/epdtest"
 {% unless flag?(:win32) || flag?(:wasi) %}
 require "./experion/gendata"
+require "./experion/gendata_v5"
 {% end %}
 
 module Experion
