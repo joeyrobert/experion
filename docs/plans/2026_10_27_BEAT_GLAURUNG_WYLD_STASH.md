@@ -5,7 +5,8 @@
 | Phase | What | Status |
 | --- | --- | --- |
 | 0 | Fair, working harness for all three opponents (native) | Not started |
-| 1 | Baseline gauntlet (native, one thread each) plus a browser baseline | Not started |
+| Prev | Beat Crafty 25.2 and Fruit 2.1 (previous milestone, the baseline) | Done |
+| 1 | Baseline gauntlet (native, one thread each) incl. Fruit and Crafty reruns, plus a browser baseline | Not started |
 | 2 | Search fixes and additions, each SPRT-gated | Not started |
 | 3 | Self-generated training data and a new net | Not started |
 | 4 | Time management and the browser build (SIMD, per-move limits) | Not started |
@@ -13,11 +14,25 @@
 
 Repo: `/Users/joey/Repos/experion` (Crystal UCI engine). Read `CLAUDE.md`, `README.md` and `docs/TRAINING.md` first.
 
+## Previous milestone (achieved): beat Crafty 25.2 and Fruit 2.1
+
+This plan builds on the last milestone, which is done. These are the results recorded in the README:
+
+| Opponent | Result | Score | Elo |
+| --- | --- | --- | --- |
+| Fruit 2.1 | 69-17-14 | 76% | +200 ± 74 |
+| Crafty 25.2 (fair clocks) | 58-32-10 | 63% | +92 ± 68 |
+
+That milestone is the baseline for this plan:
+- Phase 1 reruns both matches with one thread on each side, which is this plan's measuring rule, and records the results as the starting point.
+- Every phase from 2 on must keep Experion ahead of Fruit and Crafty. A change that gains against the new targets but loses ground against these two isn't accepted.
+- The final confirmation (phase 5) includes the Fruit and Crafty matches again.
+
 ## Goal and definition of done
 
 Experion must score **at least 67% against each of the three engines separately**: Glaurung 2.2, WyldChess 1.51 and Stash 21. A 67% score is about +123 Elo.
 
-Done means all three of the following hold:
+Done means all four of the following hold:
 
 1. **Primary (native, fair):** 400 games per opponent at 10+0.1 using fastchess.
    - Both engines run on one thread with 64 MB hash.
@@ -26,7 +41,9 @@ Done means all three of the following hold:
 2. **Long-TC check:** 200 games per opponent at 60+0.6 under the same settings. Experion scores at least 62%. Gains often shrink at longer time controls, so this guards against a bullet-only edge.
 3. **Browser check:** the play page's tournament (or `tools/web_match.mjs` extended to these engines) at 1000 ms per move. Experion is first in a round robin of the four engines, and scores at least 60% against each. This is the setting where the user saw Experion lose, so it has to improve too.
 
-One thread on each side is the rule from here on. The README's Fruit and Crafty numbers used Experion on 4 threads against single-threaded opponents, which overstated its strength by roughly 50 to 100 Elo. Never claim progress from a Threads=4 result.
+4. **Baseline held:** Experion still beats Fruit 2.1 and Crafty 25.2 at one thread each side. Each gets 200 games at 10+0.1, and Experion must score at or above its phase 1 single-thread result, within error.
+
+One thread on each side is the rule from here on. The Fruit and Crafty results above were measured with Experion on 4 threads against single-threaded opponents, which is worth roughly 50 to 100 Elo. The milestone still stands, but phase 1 re-measures it at one thread so every comparison in this plan is like for like. Never claim progress from a Threads=4 result.
 
 ## Where things stand
 
@@ -94,9 +111,10 @@ Reference CCRL ratings:
 ## Phase 1: baseline
 
 1. Run `gauntlet.sh 10+0.1 400 8` and record the per-opponent score. This number is the bar the later phases move.
-2. Extend `tools/web_match.mjs` so `--opp` accepts stash, wyldchess and glaurung via their wasm builds in `site/engines/`.
+2. Rerun the previous milestone at one thread on each side: 200 games each against Fruit (`fruit`) and Crafty (`crafty`, through the XBoard bridge with fair clocks). These single-thread scores are the floor that later phases must not drop below.
+3. Extend `tools/web_match.mjs` so `--opp` accepts stash, wyldchess and glaurung via their wasm builds in `site/engines/`.
    - Record a 1000 ms per move baseline over 96 games each.
-3. Measure single-thread NPS for both builds, native and wasm, at the start position and on `bin/experion bench`. These numbers feed phase 4.
+4. Measure single-thread NPS for both builds, native and wasm, at the start position and on `bin/experion bench`. These numbers feed phase 4.
 
 ## Phase 2: search (SPRT each item, in this order)
 
@@ -162,7 +180,7 @@ The current labels are CCRL engine annotations. The next net should learn from E
 
 ## Phase 5: confirm and ship
 
-1. Run the three definition-of-done checks above and paste the full tables into the results log.
+1. Run the four definition-of-done checks above and paste the full tables into the results log.
 2. Ship:
    - The net goes into `nets/experion.bin`.
    - Release build, with `crystal spec` and the perft suite passing.
