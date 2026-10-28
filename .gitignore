@@ -83,3 +83,4 @@ nnue*.bin*
 # local training scratch dirs (trained nets ship via nets/ explicitly)
 /run_sp_test/
 /run*/
+__pycache__/
