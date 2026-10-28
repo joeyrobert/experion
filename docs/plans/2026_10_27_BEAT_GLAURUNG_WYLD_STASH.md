@@ -91,12 +91,13 @@ The agent runs on a machine with 2 cores of a Ryzen 7 5700X (Zen 3), not on the 
 - **Data generation:** about 450 positions/s on 2 Zen 3 cores, which is about 4 days for 150M positions. Use these targets instead:
   - 40M to 60M self-play positions per round (1 to 1.5 days), mixed with the existing CCRL data.
   - Never generate data while an SPRT or gauntlet is running.
-- **Training:** PyTorch on 2 CPU cores manages roughly 10k positions/s (an estimate from the M5's 65k/s on 10 cores), so a 6-epoch run over ~200M positions takes about 1.5 days.
-  - A GT 1030 with GDDR5 (not the DDR4 version) should be about 3 to 5 times faster, if the machine has one.
-  - It needs a PyTorch build that still supports Pascal (sm_61). The CUDA 12.6 wheels do; check before installing a newer build.
-  - It also needs a trainer change: stream batches from host RAM, because 2 GB of VRAM can't hold the dataset the way `train_v5.py` does now.
-  - Without a GPU, cut epochs to 3 or 4 and train on 100M positions; the earlier runs showed validation loss levelling off early.
-- **Order of work:** phase 2 (search, SPRT-bound) and phase 3 (data, CPU-bound) can't overlap on 2 cores. Do phase 2 first. Search gains also make the self-play data better, so the order helps the net too.
+- **Training:** on the user's Windows PC with an RTX 4060 Ti (16 GB), not on the Ryzen.
+  - 16 GB of VRAM holds ~200M packed positions (~7 GB) plus the model, so `train_v5.py` works unchanged: plain `python tools/train_v5.py ... --device cuda:0`, no torchrun.
+  - Use native Windows Python with a CUDA build of PyTorch, or WSL2. Check that `torch.cuda.is_available()` is true before copying data over.
+  - Expect a 6-epoch run over ~200M positions to take well under an hour. Measure the first epoch and record it in the results log.
+  - Move data and nets between the machines with `scp` or a network share: generated data goes from the Ryzen to the PC, and `.bin`/`.pt` files come back for SPRT.
+  - Fallback only if the PC isn't available: CPU training on the Ryzen at roughly 10k positions/s (about 1.5 days per run), with 3 or 4 epochs on 100M positions.
+- **Order of work:** phase 2 (search, SPRT-bound) and phase 3 data generation (CPU-bound) can't overlap on 2 cores, but training on the PC can run alongside SPRTs on the Ryzen. Do phase 2 first. Search gains also make the self-play data better, so the order helps the net too.
 
 ## Rules for the executing agent
 
@@ -181,8 +182,8 @@ The current labels are CCRL engine annotations. The next net should learn from E
    - Don't record positions where the side to move is in check, the best move is a capture or promotion, or the score is mate.
    - Adjudicate: a win at |score| > 2500 for 4 plies, a draw at |score| < 10 for 10 plies after move 40.
    - Target: 40M to 60M positions per round on the 2-core machine. Measure throughput first: at ~1M nps per Zen 3 core and 5k nodes, 2 cores give roughly 400 to 450 positions/s, so 50M takes about 1.4 days. Run it in the background with resume support (append and rotate files).
-2. **Train on the target machine,** with plain `python tools/train_v5.py` (no torchrun) and `--device cpu`, or `cuda:0` if a GT 1030 is present (see the hardware section).
-   - Mix the new self-play data with the existing CCRL dataset rather than training on self-play alone; the self-play set is too small on 2 cores to stand by itself.
+2. **Train on the Windows PC (RTX 4060 Ti),** with plain `python tools/train_v5.py` (no torchrun) and `--device cuda:0` (see the hardware section).
+   - Mix the new self-play data with the existing CCRL dataset rather than training on self-play alone; the self-play set is too small on 2 cores to stand by itself. With fast training, run all of the lambda, mixing and width variants listed here.
    - Start from the shipped architecture (H=256) and lambda 0.1 to 0.3. Self-play scores are more consistent than CCRL scores, so retest lambda: try 0.1, 0.2 and 0.3.
    - Try mixing: self-play data alone, then self-play plus CCRL at 50/50.
    - Test H=384 and H=512 only once inference is fast. The earlier finding that width barely matters was on CCRL labels, so retest it with the new data at equal time.
