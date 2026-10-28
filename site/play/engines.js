@@ -24,13 +24,21 @@ export const ENGINES = [
     id: 'cerulean', name: 'CeruleanJS', kind: 'xboard-js', worker: '../engines/ceruleanjs/ceruleanjs.js',
     blurb: 'JavaScript, with an opening book (GPL)',
   },
-  // Stash by Morgan Houppin (GPL-3.0): four releases spanning roughly 2050-2950 CCRL Blitz.
-  ...[['14.0', 2058], ['17.0', 2297], ['21.0', 2713], ['25.0', 2933]].map(([v, elo]) => ({
-    id: 'stash-' + v.split('.')[0], name: 'Stash ' + v.split('.')[0], kind: 'uci-wasm',
-    wasm: `../engines/stash/stash-${v}.wasm`,
+  {
+    id: 'stash', name: 'Stash 21', kind: 'uci-wasm', wasm: '../engines/stash/stash.wasm',
     setup: ['setoption name Move Overhead value 0'],
-    blurb: `Morgan Houppin, v${v}, about ${elo} CCRL Blitz (GPL-3.0)`,
-  })),
+    blurb: 'Morgan Houppin, about 2710 CCRL Blitz (GPL-3.0)',
+  },
+  {
+    id: 'wyldchess', name: 'WyldChess 1.51', kind: 'uci-wasm', wasm: '../engines/wyldchess/wyldchess.wasm',
+    setup: ['setoption name Hash value 32'],
+    blurb: 'Manik Charan, about 2600 CCRL Blitz (GPL-3.0)',
+  },
+  {
+    id: 'glaurung', name: 'Glaurung 2.2', kind: 'uci-wasm', wasm: '../engines/glaurung/glaurung.wasm',
+    setup: [],
+    blurb: 'Tord Romstad, 2008, the forerunner of Stockfish, about 2820 CCRL Blitz (GPL-3.0)',
+  },
 ];
 
 export function createEngine(def, extra = {}) {

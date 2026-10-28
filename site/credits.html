@@ -23,7 +23,7 @@
 
   <main class="wrap" style="max-width: 760px; padding-top: 32px;">
     <h1>Credits and sources</h1>
-    <p>The play page runs seven engines side by side. Each one keeps its own license, and the source for
+    <p>The play page runs six engines side by side. Each one keeps its own license, and the source for
       what is served here is public.</p>
 
     <h2>Experion</h2>
@@ -37,13 +37,13 @@
       <a href="https://github.com/joeyrobert/experion/tree/main/third_party/fruit-2.1">third_party/fruit-2.1</a> and is
       compiled by <code>tools/build_fruit_wasm.sh</code>. The binary served here is built from exactly that source.</p>
 
-    <h2>Stash</h2>
-    <p>&copy; 2019&ndash;2022 Morgan Houppin. GNU General Public License, version 3 or (at your option) any later version.
-      Upstream: <a href="https://github.com/mhouppin/stash-bot">github.com/mhouppin/stash-bot</a>. Releases 14, 17, 21 and
-      25 are served, with sources in
-      <a href="https://github.com/joeyrobert/experion/tree/main/third_party">third_party/stash-*</a> (see
-      <code>third_party/STASH.md</code> for the exact tags and the two small WebAssembly changes) and compiled by
-      <code>tools/build_stash_wasm.sh</code>.</p>
+    <h2>Stash, WyldChess and Glaurung</h2>
+    <p>Stash 21 &copy; Morgan Houppin (<a href="https://github.com/mhouppin/stash-bot">upstream</a>), WyldChess 1.51
+      &copy; Manik Charan (<a href="https://github.com/Mk-Chan/WyldChess">upstream</a>) and Glaurung 2.2 &copy; 2004&ndash;2008
+      Tord Romstad, all under the GNU General Public License, version 3 or (at your option) any later version. Their
+      sources are in <a href="https://github.com/joeyrobert/experion/tree/main/third_party">third_party/</a>, each with a
+      <code>MODIFICATIONS.md</code> listing where it came from and the small changes made for WebAssembly, and they are
+      compiled by <code>tools/build_engines_wasm.sh</code>.</p>
 
     <h2>CeruleanJS</h2>
     <p>&copy; Joey Robert. GNU General Public License, version 3. Source:

@@ -3,9 +3,9 @@ name: Site
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'src/**', 'nets/**', 'third_party/**', 'tools/build_wasm.sh', 'tools/build_fruit_wasm.sh', 'tools/build_stash_wasm.sh', 'tools/wasi_pthread_shim.*', 'tools/wasm_smoke.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'src/**', 'nets/**', 'third_party/**', 'tools/build_wasm.sh', 'tools/build_fruit_wasm.sh', 'tools/build_engines_wasm.sh', 'tools/wasi_pthread_shim.*', 'tools/wasm_smoke.mjs', '.github/workflows/pages.yml']
   pull_request:
-    paths: ['site/**', 'src/**', 'nets/**', 'third_party/**', 'tools/build_wasm.sh', 'tools/build_fruit_wasm.sh', 'tools/build_stash_wasm.sh', 'tools/wasi_pthread_shim.*', 'tools/wasm_smoke.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'src/**', 'nets/**', 'third_party/**', 'tools/build_wasm.sh', 'tools/build_fruit_wasm.sh', 'tools/build_engines_wasm.sh', 'tools/wasi_pthread_shim.*', 'tools/wasm_smoke.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -33,8 +33,8 @@ jobs:
         run: tools/build_wasm.sh
       - name: Build Fruit for the browser
         run: tools/build_fruit_wasm.sh
-      - name: Build Stash for the browser
-        run: tools/build_stash_wasm.sh
+      - name: Build Stash, WyldChess and Glaurung for the browser
+        run: tools/build_engines_wasm.sh
       - name: Smoke test
         run: node tools/wasm_smoke.mjs
       - uses: actions/upload-pages-artifact@v3

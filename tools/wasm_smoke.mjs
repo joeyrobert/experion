@@ -37,16 +37,18 @@ if (fs.existsSync(fruitPath)) {
   console.log('ok:', fb);
 }
 
-// Stash releases (tools/build_stash_wasm.sh): two searches in one run exercise the inline engine thread.
-const stashDir = new URL('../site/engines/stash/', import.meta.url);
-for (const name of fs.existsSync(stashDir) ? fs.readdirSync(stashDir).filter((f) => f.endsWith('.wasm')) : []) {
-  const stash = await WebAssembly.compile(fs.readFileSync(new URL(name, stashDir)));
+// The other vendored engines (tools/build_engines_wasm.sh): two searches in one run, which also
+// exercises the inline engine thread of Stash and WyldChess.
+for (const [dir, name] of [['stash', 'Stash'], ['wyldchess', 'WyldChess'], ['glaurung', 'Glaurung']]) {
+  const file = new URL(`../site/engines/${dir}/${dir}.wasm`, import.meta.url);
+  if (!fs.existsSync(file)) continue;
+  const engine = await WebAssembly.compile(fs.readFileSync(file));
   const out = [];
-  runEngine(stash, 'uci\nisready\nposition startpos moves e2e4 e7e5\ngo movetime 200\nposition startpos moves e2e4\ngo depth 6\nquit\n', (l) => out.push(l));
+  runEngine(engine, 'uci\nsetoption name Hash value 16\nisready\nposition startpos moves e2e4 e7e5\ngo movetime 200\nposition startpos moves e2e4\ngo depth 6\nquit\n', (l) => out.push(l));
   const moves = out.filter((l) => /^bestmove [a-h][1-8][a-h][1-8]/.test(l));
-  if (!out.some((l) => l.startsWith('id name Stash')) || moves.length !== 2 || out.some((l) => l.includes('(null)'))) {
-    console.error('FAIL:', name, out.filter((l) => !l.startsWith('option')).join('\n'));
+  if (!out.some((l) => l.startsWith('id name ' + name)) || moves.length !== 2 || out.some((l) => l.includes('(null)'))) {
+    console.error('FAIL:', dir, out.filter((l) => !l.startsWith('option')).join('\n'));
     process.exit(1);
   }
-  console.log('ok:', name, moves.join(', '));
+  console.log('ok:', dir, moves.join(', '));
 }
