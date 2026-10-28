@@ -71,13 +71,40 @@ Reference CCRL ratings:
   - A net trained on the engine's own search scores is the standard next step.
 - **Browser build:** `tools/build_wasm.sh` compiles without wasm SIMD. Each move runs in a fresh module instance with a 32 MB hash and no TT carried over. That handicap is the same for every engine on the page, but NNUE suffers more without SIMD than an HCE engine does.
 
+## Hardware: a 2-core Ryzen 7 5700X machine
+
+The agent runs on a machine with 2 cores of a Ryzen 7 5700X (Zen 3), not on the Mac where the earlier work happened. Plan every budget around that:
+
+- **Setup:** the binaries under `tools/match/` and `/Users/joey/Repos/engines` are macOS arm64 builds and aren't in git, so nothing there carries over.
+  - Build fastchess from source.
+  - Build Fruit, Glaurung, WyldChess and Stash from `third_party/`.
+  - Get Crafty 25.2 from its upstream source, for personal testing only; it is never redistributed.
+  - Build `uci_bridge` from `tools/match/uci_bridge.cr`.
+  - Point `run_match.sh` and `sprt.sh` at the new paths with env vars, not hardcoded `/Users/joey` paths.
+- **Data:** the existing 142M-position CCRL dataset (`datasets/v5_full`, ~5 GB) isn't in git. Copy it over from the Mac, or re-extract it from the CCRL PGN with `tools/extract_ccrl_v5.py`.
+- **Concurrency:** use 2 concurrent games everywhere. Without pondering each game keeps about one core busy, and SMT siblings make timing noisy, so don't go higher.
+- **Testing throughput:** about 240 games/hour at 10+0.1, or about 480 games/hour at 5+0.05. A standard [0, 5] SPRT (5k to 20k games) would take days, so:
+  - Run SPRTs at 5+0.05 with bounds elo0=0 elo1=10, which needs about 1.5k to 4k games, or 3 to 8 hours.
+  - Use [0, 5] only for a change that [0, 10] can't decide and that looks worth the wait.
+  - Batch related small changes into one SPRT when they're clearly independent.
+- **Gauntlet cost:** about 5 hours for 400 games against each of the three targets at 10+0.1, about 12 hours for the 60+0.6 check, and about 2 hours for the Fruit and Crafty reruns.
+- **Data generation:** about 450 positions/s on 2 Zen 3 cores, which is about 4 days for 150M positions. Use these targets instead:
+  - 40M to 60M self-play positions per round (1 to 1.5 days), mixed with the existing CCRL data.
+  - Never generate data while an SPRT or gauntlet is running.
+- **Training:** PyTorch on 2 CPU cores manages roughly 10k positions/s (an estimate from the M5's 65k/s on 10 cores), so a 6-epoch run over ~200M positions takes about 1.5 days.
+  - A GT 1030 with GDDR5 (not the DDR4 version) should be about 3 to 5 times faster, if the machine has one.
+  - It needs a PyTorch build that still supports Pascal (sm_61). The CUDA 12.6 wheels do; check before installing a newer build.
+  - It also needs a trainer change: stream batches from host RAM, because 2 GB of VRAM can't hold the dataset the way `train_v5.py` does now.
+  - Without a GPU, cut epochs to 3 or 4 and train on 100M positions; the earlier runs showed validation loss levelling off early.
+- **Order of work:** phase 2 (search, SPRT-bound) and phase 3 (data, CPU-bound) can't overlap on 2 cores. Do phase 2 first. Search gains also make the self-play data better, so the order helps the net too.
+
 ## Rules for the executing agent
 
 - Judge only by match results; never use WAC/STS or validation loss to decide.
 - Gate every engine change with SPRT against the previous baseline.
   - Command: `tools/match/sprt.sh` with `THREADS=1`.
-  - Settings: elo0=0 elo1=5 for gains, and elo0=-5 elo1=0 for simplifications.
-  - Use 10+0.1, and 8 concurrent games on this 10-core Mac.
+  - Settings: elo0=0 elo1=10 for gains, and elo0=-10 elo1=0 for simplifications (see the hardware section for why).
+  - Use 5+0.05 with 2 concurrent games.
   - Keep `bin/experion_baseline` updated after every accepted change.
 - Run gauntlets against the three targets only at phase boundaries, not after every change. They're expensive, and tuning against the targets risks overfitting to them.
 - `crystal spec` must stay green, and perft must stay exact.
@@ -109,7 +136,7 @@ Reference CCRL ratings:
 
 ## Phase 1: baseline
 
-1. Run `gauntlet.sh 10+0.1 400 8` and record the per-opponent score. This number is the bar the later phases move.
+1. Run `gauntlet.sh 10+0.1 400 2` and record the per-opponent score. This number is the bar the later phases move.
 2. Rerun the previous milestone at one thread on each side: 200 games each against Fruit (`fruit`) and Crafty (`crafty`, through the XBoard bridge with fair clocks). These single-thread scores are the floor that later phases must not drop below.
 3. Extend `tools/web_match.mjs` so `--opp` accepts stash, wyldchess and glaurung via their wasm builds in `site/engines/`.
    - Record a 1000 ms per move baseline over 96 games each.
@@ -136,7 +163,7 @@ Ordered by expected value per hour. Each change goes in alone, gets SPRT-tested,
 7. **Check extensions** in a limited form: only when SEE >= 0, or only at low depth. Retest them now that SE is fixed.
 8. **Tune the margins with SPSA:**
    - Parameters: RFP margin, futility margin, LMR base and divisor, SEE thresholds, and the aspiration delta.
-   - Expose them as UCI spin options under an `EXPERION_TUNE` build flag, and run fastchess SPSA or a small Python SPSA driver for about 20k games at 8+0.08.
+   - Expose them as UCI spin options under an `EXPERION_TUNE` build flag, and run fastchess SPSA or a small Python SPSA driver for 5k to 10k games at 5+0.05 (12 to 24 hours on 2 cores).
    - This step runs once the structural changes above have settled.
 
 **Phase 2 exit:** run the gauntlet again at 400 games per opponent. Expect +60 to +120 Elo in total. If that falls short, look for a search bug before moving on:
@@ -148,13 +175,14 @@ Ordered by expected value per hour. Each change goes in alone, gets SPRT-tested,
 The current labels are CCRL engine annotations. The next net should learn from Experion's own search scores and game results.
 
 1. **Data generator.** Extend `gendata-selfplay`, or add `gendata-v5`, to produce data in the packed v5 format `tools/merge_v5.py` writes, or a text format the trainer accepts.
-   - Play self-play games at a fixed node count: 5k nodes for most positions and 10k for a sample, with Threads=1 per game and 10 games in parallel.
+   - Play self-play games at a fixed node count: 5k nodes for most positions and 10k for a sample, with Threads=1 per game and 2 games in parallel.
    - Start each game with 8 random plies from the start position, or from a few plies of `openings.pgn` followed by random plies. Discard games where the score after the random plies is outside ±400.
    - Record the position, the search score from the side to move's point of view, and the final result.
    - Don't record positions where the side to move is in check, the best move is a capture or promotion, or the score is mate.
    - Adjudicate: a win at |score| > 2500 for 4 plies, a draw at |score| < 10 for 10 plies after move 40.
-   - Target: 150M positions or more. Measure throughput first; at ~1.5M nps per core, 10 cores at 5k nodes is roughly 3k positions/s, so 150M takes about 14 hours. Run it in the background with resume support (append and rotate files).
-2. **Train on the user's GPU setup,** the same torchrun flow as in `docs/TRAINING.md`.
+   - Target: 40M to 60M positions per round on the 2-core machine. Measure throughput first: at ~1M nps per Zen 3 core and 5k nodes, 2 cores give roughly 400 to 450 positions/s, so 50M takes about 1.4 days. Run it in the background with resume support (append and rotate files).
+2. **Train on the target machine,** with plain `python tools/train_v5.py` (no torchrun) and `--device cpu`, or `cuda:0` if a GT 1030 is present (see the hardware section).
+   - Mix the new self-play data with the existing CCRL dataset rather than training on self-play alone; the self-play set is too small on 2 cores to stand by itself.
    - Start from the shipped architecture (H=256) and lambda 0.1 to 0.3. Self-play scores are more consistent than CCRL scores, so retest lambda: try 0.1, 0.2 and 0.3.
    - Try mixing: self-play data alone, then self-play plus CCRL at 50/50.
    - Test H=384 and H=512 only once inference is fast. The earlier finding that width barely matters was on CCRL labels, so retest it with the new data at equal time.
@@ -194,7 +222,7 @@ The current labels are CCRL engine annotations. The next net should learn from E
   - Spend the remaining effort on data volume (phase 3 at 300M+ positions) and SPSA, which are the most dependable sources of Elo.
 - **Overfitting to the three opponents:** never tune against them directly. Keep using self-play SPRT, and use the gauntlets only to measure.
 - **Self-play data looks bad:** if a self-play net loses to the CCRL net at equal data volume, check label sign and POV first (see the CCRL POV note in `docs/TRAINING.md`). A start position minus a rook must evaluate near -500.
-- **Machine contention:** don't run data generation and SPRT at the same time; the timing noise ruins SPRT. Generate data overnight and test during the day, or split the cores (6 generating, 4 testing) and accept slower SPRTs.
+- **Machine contention:** don't run data generation and SPRT at the same time; the timing noise ruins SPRT. With 2 cores there is no room to split them, so phases run one after another.
 
 ## Results log
 
