@@ -40,7 +40,6 @@ Done means all four of the following hold:
    - Experion scores at least 67%, and the lower bound of the 95% interval is above +90 Elo.
 2. **Long-TC check:** 200 games per opponent at 60+0.6 under the same settings. Experion scores at least 62%. Gains often shrink at longer time controls, so this guards against a bullet-only edge.
 3. **Browser check:** the play page's tournament (or `tools/web_match.mjs` extended to these engines) at 1000 ms per move. Experion is first in a round robin of the four engines, and scores at least 60% against each. This is the setting where the user saw Experion lose, so it has to improve too.
-
 4. **Baseline held:** Experion still beats Fruit 2.1 and Crafty 25.2 at one thread each side. Each gets 200 games at 10+0.1, and Experion must score at or above its phase 1 single-thread result, within error.
 
 One thread on each side is the rule from here on. The Fruit and Crafty results above were measured with Experion on 4 threads against single-threaded opponents, which is worth roughly 50 to 100 Elo. The milestone still stands, but phase 1 re-measures it at one thread so every comparison in this plan is like for like. Never claim progress from a Threads=4 result.
