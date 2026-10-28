@@ -61,6 +61,7 @@ nnue*.bin*
 !/tools/match/ab.sh
 !/tools/match/run_match.sh
 !/tools/match/sprt.sh
+!/tools/match/gauntlet.sh
 !/tools/match/uci_bridge.cr
 !/tools/match/benchmark.py
 !/tools/match/openings.pgn
